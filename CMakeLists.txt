@@ -32,6 +32,7 @@ qt_add_executable(KURS
     Database.cpp main.cpp
     main.cpp
     Database.cpp main.cpp
+    Database.cpp main.cpp
 )
 
 # qt_create_translation тепер повинен працювати, оскільки LinguistTools знайдено.

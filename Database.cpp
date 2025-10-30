@@ -33,7 +33,6 @@ void Database::initializeDatabase()
 
 QByteArray Database::hashPassword(const QString &password)
 {
-    // УВАГА: Це дуже простий хеш для прикладу. Для реальних додатків використовуйте QCryptographicHash.
     quint32 hash = 0xAAAAAAAA;
     for (const QChar &c : password) {
         hash = hash ^ (c.unicode() << 5);

@@ -8,6 +8,10 @@ set(CMAKE_AUTORCC ON)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+<<<<<<< HEAD
+=======
+
+>>>>>>> fec93604fb15b6789a8d37e3baa60eca41b395d1
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Sql LinguistTools)
 
 set(TS_FILES KURS_uk_UA.ts)
@@ -18,6 +22,10 @@ set(PROJECT_SOURCES
     Database.h
     ${TS_FILES}
 )
+<<<<<<< HEAD
+=======
+
+>>>>>>> fec93604fb15b6789a8d37e3baa60eca41b395d1
 qt_add_executable(KURS
     MANUAL_FINALIZATION
     ${PROJECT_SOURCES}

@@ -1,7 +1,10 @@
 #include "Database.h"
 #include <QSqlError>
+#include <QSqlQuery>
 #include <QVariant>
+#include <QVariantMap>
 #include <QtGlobal>
+#include <QDebug>
 
 Database::Database(QObject *parent)
     : QObject(parent)
@@ -11,8 +14,12 @@ Database::Database(QObject *parent)
 
 void Database::initializeDatabase()
 {
-    db = QSqlDatabase::addDatabase("QSQLITE");
-    db.setDatabaseName("diary.db");
+    if (QSqlDatabase::contains("qt_sql_default_connection")) {
+        db = QSqlDatabase::database("qt_sql_default_connection");
+    } else {
+        db = QSqlDatabase::addDatabase("QSQLITE");
+        db.setDatabaseName("diary.db");
+    }
 
     if (!db.open()) {
         qCritical() << "Помилка: Не вдалося відкрити базу даних:" << db.lastError().text();
@@ -66,28 +73,32 @@ bool Database::registerUser(const QString &name, const QString &email, const QSt
     }
 }
 
-bool Database::loginUser(const QString &email, const QString &password)
+QVariant Database::loginUser(const QString &email, const QString &password)
 {
     if (email.isEmpty() || password.isEmpty()) {
         qWarning() << "Попередження: Усі поля мають бути заповнені для входу.";
-        return false;
+        return QVariant(); // Недійсний QVariant
     }
 
     QByteArray providedHash = hashPassword(password);
 
     QSqlQuery query;
-    query.prepare("SELECT password_hash FROM users WHERE email = :email");
+    query.prepare("SELECT name, password_hash FROM users WHERE email = :email");
     query.bindValue(":email", email);
 
     if (query.exec() && query.next()) {
-        QByteArray storedHash = query.value(0).toByteArray();
+        QString userName = query.value(0).toString();
+        QByteArray storedHash = query.value(1).toByteArray();
 
         if (storedHash == providedHash) {
             qDebug() << "Вхід успішний для користувача:" << email;
-            return true;
+            QVariantMap userData;
+            userData["name"] = userName;
+
+            return userData;
         }
     }
 
     qWarning() << "Помилка: Невірний email або пароль для:" << email;
-    return false;
+    return QVariant();
 }

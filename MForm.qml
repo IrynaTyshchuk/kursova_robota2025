@@ -9,9 +9,12 @@ ApplicationWindow {
     visible: true
     title: qsTr("Щоденник — Вхід / Реєстрація")
     Material.theme: Material.Light
-    width: stack.currentItem ? stack.currentItem.implicitWidth : 420
-    height: 640
+    // ЗМІНА 1: Збільшено розмір вікна для кращого відображення Drawer
+    width: stack.currentItem ? stack.currentItem.implicitWidth : 500
+    height: 720
     property color currentThemeColor: Material.color(Material.Indigo)
+
+    // --- Message Dialog Component ---
     Component {
         id: messageDialog
         MessageDialog {
@@ -27,11 +30,12 @@ ApplicationWindow {
     }
     Loader { id: dialogLoader; sourceComponent: messageDialog }
 
+    // --- New Note Page Component ---
     Component {
         id: newNotePage
         Page {
-            implicitWidth: 420 * 1.5
-            implicitHeight: 640
+            implicitWidth: 500
+            implicitHeight: 720
 
             property StackView stackView: null
             property var dialog: null
@@ -63,33 +67,84 @@ ApplicationWindow {
                     ColumnLayout {
                         width: parent.width - padding * 2
                         spacing: 15
-                        TextField { id: titleField; placeholderText: qsTr("Заголовок"); Layout.fillWidth: true; font.pixelSize: 18 }
+
+                        // Заголовок (Title)
+                        TextField { id: titleField; placeholderText: qsTr("Заголовок запису"); Layout.fillWidth: true; font.pixelSize: 18 }
+
+                        // Тип завдання (Task Type)
+                        Label { text: qsTr("Тип завдання:"); font.pixelSize: 16 }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            CheckBox { id: singleTaskCheck; text: qsTr("Одиничне"); checked: true; onClicked: if (checked) repeatableTaskCheck.checked = false }
+                            CheckBox { id: repeatableTaskCheck; text: qsTr("Повторюване"); onClicked: if (checked) singleTaskCheck.checked = false }
+                        }
+
+                        // Пріоритет (Priority)
+                        Label { text: qsTr("Пріоритет:"); font.pixelSize: 16 }
+                        ComboBox {
+                            id: priorityComboBox
+                            Layout.fillWidth: true
+                            model: [ qsTr("Низький"), qsTr("Середній"), qsTr("Високий") ]
+                            currentIndex: 1 // Середній
+                        }
+
+                        // Тип діяльності (Activity Type)
+                        Label { text: qsTr("Тип діяльності:"); font.pixelSize: 16 }
+                        TextField { id: activityTypeField; placeholderText: qsTr("Наприклад: Робота, Особисте, Навчання"); Layout.fillWidth: true }
+
+                        // Опис завдання (Task Description - як вміст нотатки)
                         TextArea {
                             id: contentArea
-                            placeholderText: qsTr("Ваші думки та події...")
+                            placeholderText: qsTr("Ваші думки та опис завдання...")
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 300
+                            Layout.preferredHeight: 200
                             wrapMode: TextEdit.Wrap
                             font.pixelSize: 16
-                            background: Rectangle { color: Material.color(Material.Grey, Material.Shade100); radius: 8; border.width: 1; border.color: Material.color(Material.Grey, Material.Shade300) }
+                            // Додано padding для зсуву тексту нижче
+                            padding: 10
+                            background: Rectangle {
+                                color: Material.color(Material.Grey, Material.Shade100);
+                                radius: 8;
+                                border.width: 1;
+                                border.color: Material.color(Material.Grey, Material.Shade300);
+                                implicitHeight: contentArea.contentHeight + 20
+                                implicitWidth: contentArea.width
+                            }
                         }
+
+                        // Кнопка Зберегти
                         Button {
                             text: qsTr("Зберегти запис")
                             Layout.fillWidth: true
                             Material.background: Material.color(Material.Green, Material.Shade500)
                             onClicked: {
                                 if (titleField.text.trim() === "" || contentArea.text.trim() === "") {
-                                    if (dialog) dialog.show(qsTr("Будь ласка, заповніть заголовок та текст запису."), true)
+                                    if (dialog) dialog.show(qsTr("Будь ласка, заповніть заголовок та опис запису."), true)
                                     return
                                 }
+
+                                var taskType = singleTaskCheck.checked ? qsTr("Одиничне") : qsTr("Повторюване");
+
                                 if (notesModel) {
-                                    notesModel.append({ "title": titleField.text, "content": contentArea.text, "date": new Date().toLocaleDateString(Qt.locale(), "yyyy-MM-dd") })
+                                    notesModel.append({
+                                        "title": titleField.text,
+                                        "content": contentArea.text,
+                                        "date": new Date().toLocaleDateString(Qt.locale(), "yyyy-MM-dd"),
+                                        "taskType": taskType,
+                                        "priority": priorityComboBox.currentText,
+                                        "activityType": activityTypeField.text
+                                    })
                                 }
-                                titleField.clear(); contentArea.clear()
+                                titleField.clear(); contentArea.clear(); activityTypeField.clear()
+                                priorityComboBox.currentIndex = 1;
+                                singleTaskCheck.checked = true;
+
                                 if (dialog) dialog.show(qsTr("Запис успішно збережено!"), false)
                                 stackView.pop()
                             }
                         }
+
+                        // Кнопка Скасувати
                         Button {
                             text: qsTr("Скасувати")
                             Layout.fillWidth: true
@@ -102,13 +157,84 @@ ApplicationWindow {
         }
     }
 
+    // --- Note Detail Page Component ---
+    Component {
+        id: noteDetailPage
+        Page {
+            implicitWidth: 500
+            implicitHeight: 720
+
+            property StackView stackView: null
+            property var noteData: null
+
+            header: ToolBar {
+                RowLayout {
+                    anchors.fill: parent
+                    spacing: 10
+                    ToolButton {
+                        contentItem: Label { text: qsTr("👈"); font.pixelSize: 24 }
+                        onClicked: stackView.pop()
+                    }
+                    Label {
+                        text: noteData.title
+                        font.pixelSize: 20
+                        Layout.fillWidth: true
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        elide: Text.ElideRight
+                    }
+                }
+            }
+
+            ScrollView {
+                anchors.fill: parent
+                Frame {
+                    width: parent.width
+                    padding: 20
+                    ColumnLayout {
+                        width: parent.width - padding * 2
+                        spacing: 10
+
+                        Label { text: qsTr("Дата: ") + noteData.date; font.pixelSize: 14; color: Material.color(Material.Grey, Material.Shade700) }
+                        Label { text: qsTr("Тип завдання: ") + noteData.taskType; font.pixelSize: 14 }
+                        Label { text: qsTr("Пріоритет: ") + noteData.priority; font.pixelSize: 14; color: noteData.priority === qsTr("Високий") ? Material.color(Material.Red) : Material.color(Material.Blue) }
+                        Label { text: qsTr("Тип діяльності: ") + noteData.activityType; font.pixelSize: 14 }
+
+                        Rectangle { Layout.fillWidth: true; height: 1; color: Material.color(Material.Grey, Material.Shade300); Layout.topMargin: 10; Layout.bottomMargin: 10 }
+
+                        Label { text: qsTr("Опис:"); font.pixelSize: 16; font.bold: true }
+                        TextArea {
+                            text: noteData.content
+                            Layout.fillWidth: true
+                            readOnly: true
+                            Layout.preferredHeight: 300
+                            wrapMode: TextEdit.Wrap
+                            font.pixelSize: 16
+                            // Додано padding для зсуву тексту нижче
+                            padding: 10
+                            background: Rectangle {
+                                color: Material.color(Material.Grey, Material.Shade100);
+                                radius: 8;
+                                border.width: 1;
+                                border.color: Material.color(Material.Grey, Material.Shade300);
+                                implicitHeight: contentArea.contentHeight + 20
+                                implicitWidth: contentArea.width
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // --- Diary Content Component (Виправлено StackView push) ---
     Component {
         id: diaryContent
         Page {
             id: diaryPage
 
-            implicitWidth: 420 * 1.5
-            implicitHeight: 640
+            implicitWidth: 500
+            implicitHeight: 720
 
             ListModel {
                 id: notesModel
@@ -157,7 +283,7 @@ ApplicationWindow {
             Drawer {
                 id: drawer
                 edge: Qt.RightEdge
-                width: parent.width * 0.5
+                width: 250 // Збільшено для кращої видимості
                 height: parent.height
 
                 ColumnLayout {
@@ -224,6 +350,7 @@ ApplicationWindow {
                 }
             }
 
+
             ColumnLayout {
                 id: emptyState
                 visible: showTutorialArrow
@@ -231,14 +358,23 @@ ApplicationWindow {
                 spacing: 10
                 Label { text: qsTr("Нагадувань ще нема"); font.pixelSize: 20; Layout.alignment: Qt.AlignHCenter }
                 Label { text: qsTr("Почніть вести свій щоденник"); font.pixelSize: 14; color: Material.color(Material.Grey); Layout.alignment: Qt.AlignHCenter }
+
+                // Кнопка створення першого запису
                 Button {
                     text: qsTr("➕ Створити перший запис")
                     Layout.alignment: Qt.AlignHCenter
                     Material.background: Material.color(Material.Green)
                     Layout.topMargin: 20
-                    onClicked: stackRef.push({
-                        item: newNotePage,
-                        properties: { stackView: stackRef, dialog: dialogRef, notesModel: notesModel }
+                    // ВИПРАВЛЕНО: Явне створення об'єкта перед push
+                    onClicked: Qt.callLater(function() {
+                        var noteInstance = newNotePage.createObject(stackRef, {
+                            stackView: stackRef,
+                            dialog: dialogRef,
+                            notesModel: notesModel
+                        });
+                        if (noteInstance) {
+                            stackRef.push(noteInstance);
+                        }
                     })
                 }
             }
@@ -251,6 +387,7 @@ ApplicationWindow {
                 anchors.left: diaryPage.contentItem.left
                 anchors.right: diaryPage.contentItem.right
                 anchors.margins: 10
+                spacing: 5
 
                 model: notesModel
 
@@ -267,32 +404,85 @@ ApplicationWindow {
                         anchors.fill: parent
                         onClicked: {
                             notesList.currentIndex = index
-                            dialogRef.show(qsTr("Вибрано запис: ") + model.title, false)
+
+                            // ВИПРАВЛЕННЯ: Явне створення об'єкта для деталей нотатки
+                            var detailInstance = noteDetailPage.createObject(stackRef, {
+                                stackView: stackRef,
+                                noteData: notesModel.get(index) // Передаємо дані нотатки
+                            });
+
+                            if (detailInstance) {
+                                stackRef.push(detailInstance); // Передаємо створений об'єкт
+                            }
                         }
                     }
-
                     RowLayout {
                         spacing: 10
                         anchors.fill: parent
                         anchors.margins: 10
+
                         ColumnLayout {
                             Layout.fillWidth: true
                             Label { text: model.title; font.pixelSize: 16; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
-                            Label { text: model.date; font.pixelSize: 12; color: Material.color(Material.Grey, Material.Shade700) }
+                            RowLayout {
+                                Label { text: model.date; font.pixelSize: 12; color: Material.color(Material.Grey, Material.Shade700) }
+                                // Додано відображення пріоритету
+                                Label {
+                                    text: " | " + model.priority;
+                                    font.pixelSize: 12;
+                                    color: model.priority === qsTr("Високий") ? Material.color(Material.Red, Material.Shade700) : Material.color(Material.Blue, Material.Shade700)
+                                }
+                            }
                         }
                     }
                 }
             }
+
+            // Кнопка FloatingActionButton для створення нової нотатки
+            Button {
+                id: fab
+                text: "➕"
+                font.pixelSize: 24
+                width: 56
+                height: 56
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                anchors.rightMargin: 20
+                anchors.bottomMargin: 20
+
+                visible: !showTutorialArrow
+
+                // Виправлення radius
+                background: Rectangle {
+                    radius: fab.width / 2
+                    color: Material.color(Material.Indigo)
+                }
+
+                Material.foreground: "white"
+
+                // ВИПРАВЛЕНО: Явне створення об'єкта перед push
+                onClicked: Qt.callLater(function() {
+                    var noteInstance = newNotePage.createObject(stackRef, {
+                        stackView: stackRef,
+                        dialog: dialogRef,
+                        notesModel: notesModel
+                    });
+                    if (noteInstance) {
+                        stackRef.push(noteInstance);
+                    }
+                })
+            }
         }
     }
 
+    // --- Register Page Component ---
     Component {
         id: registerPage
         Page {
             title: qsTr("Реєстрація")
 
-            implicitWidth: 420
-            implicitHeight: 640
+            implicitWidth: 500
+            implicitHeight: 720
 
             ScrollView {
                 anchors.fill: parent
@@ -333,12 +523,13 @@ ApplicationWindow {
         }
     }
 
+    // --- Login Page Component ---
     Component {
         id: loginPage
         Page {
 
-            implicitWidth: 420
-            implicitHeight: 640
+            implicitWidth: 500
+            implicitHeight: 720
 
             ColumnLayout {
                 anchors.centerIn: parent
@@ -360,14 +551,14 @@ ApplicationWindow {
                         }
 
                         if (typeof dbManager !== 'undefined') {
-                            var userData = dbManager.loginUser(email.text, password.text); // QVariantMap з name
+                            var userData = dbManager.loginUser(email.text, password.text);
                             if (userData && userData.name) {
                                 email.clear(); password.clear()
                                 var diaryInstance = diaryContent.createObject(stack, {
                                     userName: userData.name
                                 });
                                 if (diaryInstance) {
-                                    stack.replace(diaryInstance);
+                                    Qt.callLater(function() { stack.replace(diaryInstance); })
                                 } else {
                                     dialogLoader.item.show(qsTr("Критична помилка ініціалізації сторінки щоденника."), true);
                                 }
@@ -385,7 +576,7 @@ ApplicationWindow {
                     text: qsTr("Реєстрація")
                     Layout.fillWidth: true
                     Material.background: Material.color(Material.Grey)
-                    onClicked: stack.replace(registerPage)
+                    onClicked: Qt.callLater(function() { stack.replace(registerPage) })
                 }
             }
         }

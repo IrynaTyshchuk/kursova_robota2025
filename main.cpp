@@ -19,10 +19,10 @@ int main(int argc, char *argv[])
             break;
         }
     }
-
     QQmlApplicationEngine engine;
     Database dbManager;
     engine.rootContext()->setContextProperty("dbManager", &dbManager);
+
     const QUrl url(QStringLiteral("MForm.qml"));
 
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,

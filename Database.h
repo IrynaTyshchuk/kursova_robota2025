@@ -24,6 +24,7 @@ public:
     Q_INVOKABLE QVariantList getTaskTypes();
     Q_INVOKABLE QVariantList getPriorities();
     Q_INVOKABLE QVariantList getActivities();
+    Q_INVOKABLE QVariantList getRepeatOptions();
 
 private:
     QSqlDatabase db;

@@ -1,70 +1,54 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(KURS VERSION 0.1 LANGUAGES CXX)
-
-set(CMAKE_AUTOUIC ON)
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTORCC ON)
+project(diary VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-<<<<<<< HEAD
-=======
 
->>>>>>> fec93604fb15b6789a8d37e3baa60eca41b395d1
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Sql LinguistTools)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Sql Quick QuickControls2 Widgets)
 
-set(TS_FILES KURS_uk_UA.ts)
+qt_standard_project_setup(REQUIRES 6.8)
 
-set(PROJECT_SOURCES
+qt_add_executable(appdiary
     main.cpp
-    Database.cpp
-    Database.h
-    ${TS_FILES}
 )
-<<<<<<< HEAD
-=======
 
->>>>>>> fec93604fb15b6789a8d37e3baa60eca41b395d1
-qt_add_executable(KURS
-    MANUAL_FINALIZATION
-    ${PROJECT_SOURCES}
+target_compile_features(appdiary PRIVATE cxx_std_17)
 
-    build/Desktop_Qt_6_10_0_MinGW_64_bit-Debug/MForm.qml
-    Database.cpp main.cpp
-    main.cpp
-    Database.cpp main.cpp
-    Database.cpp main.cpp
-    build/Desktop_Qt_6_10_0_MinGW_64_bit-Debug/MForm.qml
-    resources.qrc
+target_sources(appdiary
+    PRIVATE
+        Database.h
+        Database.cpp
 
 
 )
 
-qt_create_translation(QM_FILES ${CMAKE_SOURCE_DIR} ${TS_FILES})
-
-set(QT_TARGETS
-    Qt6::Core
-    Qt6::Gui
-    Qt6::Qml
-    Qt6::Quick
-    Qt6::Sql
+qt_add_qml_module(appdiary
+    URI diary
+    VERSION 1.0
+    QML_FILES
+        Main.qml
+    RESOURCES resurs.qrc
 )
 
-target_link_libraries(KURS PRIVATE ${QT_TARGETS})
-
-set_target_properties(KURS PROPERTIES
+set_target_properties(appdiary PROPERTIES
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
     MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
     MACOSX_BUNDLE TRUE
     WIN32_EXECUTABLE TRUE
 )
 
+target_link_libraries(appdiary
+    PRIVATE
+        Qt6::Quick
+        Qt6::Sql
+        Qt6::QuickControls2
+        Qt6::Widgets
+)
+
 include(GNUInstallDirs)
-install(TARGETS KURS
+install(TARGETS appdiary
     BUNDLE DESTINATION .
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
-
-qt_finalize_executable(KURS)

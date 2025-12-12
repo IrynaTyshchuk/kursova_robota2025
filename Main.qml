@@ -78,9 +78,13 @@ ApplicationWindow {
 
             Component.onCompleted: {
                 if (dbManager) {
-                    taskTypeModel = dbManager.getTaskTypes()
-                    priorityModel = dbManager.getPriorities()
-                    repeatOptionModel = dbManager.getRepeatOptions()
+                    try {
+                        taskTypeModel = dbManager.getTaskTypes()
+                        priorityModel = dbManager.getPriorities()
+                        repeatOptionModel = dbManager.getRepeatOptions()
+                    } catch (e) {
+                        console.error("Помилка завантаження допоміжних моделей з dbManager:", e)
+                    }
                 }
                 taskTypeComboBox.currentIndex = -1
                 priorityComboBox.currentIndex = -1
@@ -279,6 +283,10 @@ ApplicationWindow {
                                 var executionDateRaw = executionDateField.text.trim();
                                 var executionDateValue = "";
 
+                                var repeatOptionId = repeatOptionComboBox.currentIndex >= 0 ? repeatOptionComboBox.model[repeatOptionComboBox.currentIndex].id : 1;
+                                var taskTypeId = taskTypeComboBox.currentIndex >= 0 ? taskTypeComboBox.model[taskTypeComboBox.currentIndex].id : -1;
+                                var priorityId = priorityComboBox.currentIndex >= 0 ? priorityComboBox.model[priorityComboBox.currentIndex].id : -1;
+
                                 if (executionDateRaw !== "") {
                                     var dateRegex = /^(0[1-9]|[12]\d|3[01])\.(0[1-9]|1[0-2])\.(\d{4})$/;
                                     var dateMatch = executionDateRaw.match(dateRegex);
@@ -309,12 +317,11 @@ ApplicationWindow {
 
                                 if (executionDateValue !== "") {
                                     var today = new Date();
-                                    var execDate = new Date(executionDateValue + 'T00:00:00');
-                                    today.setHours(0, 0, 0, 0);
+                                    var todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                                    var dateParts = executionDateValue.split('-');
+                                    var execDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
 
-                                    // Порівнюємо дати, ігноруючи час, використовуючи лише рік, місяць і день
-                                    if (execDate < today) {
-                                         // Якщо дата виконання минула (використовуючи date.getTime())
+                                    if (execDate < todayStart) {
                                         if (dialog) dialog.show(qsTr("Введена дата виконання вже минула."), true);
                                         return;
                                     }
@@ -323,7 +330,7 @@ ApplicationWindow {
                                 if (titleField.text.trim() === "" || contentArea.text.trim() === "" ||
                                             priorityComboBox.currentIndex < 0 || taskTypeComboBox.currentIndex < 0 ||
                                             activityValue === "") {
-                                    if (dialog) dialog.show(qsTr("Будь ласка, заповніть усі обов'язкові поля."), true)
+                                    if (dialog) dialog.show(qsTr("Будь ласка, заповніть усі обов'язкові поля (заголовок, зміст, пріоритет, тип завдання, діяльність)."), true)
                                     return
                                 }
 
@@ -439,13 +446,13 @@ ApplicationWindow {
                             font.family: "Roboto"
                         }
                         Label {
-                            text: qsTr("Час створення: ") + (noteData ? noteData.creation_time : "");
+                            text: qsTr("Час створення: ") + (noteData && noteData.created_time && noteData.created_time !== "" ? noteData.created_time : qsTr("Не вказано"));
                             font.pixelSize: 14;
                             color: window.currentTextColor || Material.color(Material.Grey, Material.Shade700)
                             font.family: "Roboto"
                         }
                         Label {
-                            text: qsTr("Виконати до: ") + (noteData && noteData.executionDate ? formatDbDate(noteData.executionDate) : qsTr("Не вказано"));
+                            text: qsTr("Виконати до: ") + (noteData && noteData.execution_date && noteData.execution_date !== "" ? formatDbDate(noteData.execution_date) : qsTr("Не вказано"));
                             font.pixelSize: 14;
                             font.bold: true;
                             color: window.accentColor || Material.color(Material.Indigo, Material.Shade700)
@@ -531,6 +538,7 @@ ApplicationWindow {
             }
         }
     }
+
     Component {
         id: diaryContent
         Page {
@@ -558,24 +566,36 @@ ApplicationWindow {
             property int backgroundColorId: 1
             property int textColorId: 1
             property int fontFamilyId: 1
+
             QtObject {
                 id: dateHelper
                 function getStartOfWeek(date) {
-                    var d = new Date(date.getTime());
+                    if (!date || isNaN(date.getTime())) return new Date();
+
+                    var d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
                     var day = d.getDay();
                     var diff = d.getDate() - day + (day === 0 ? -6 : 1);
                     d.setDate(diff);
-                    d.setHours(0, 0, 0, 0);
                     return d;
                 }
 
                 function addWeeks(date, weeks) {
+                    if (!date || isNaN(date.getTime())) return new Date();
                     var d = new Date(date.getTime());
                     d.setDate(d.getDate() + weeks * 7);
                     return d;
                 }
 
+                function addDays(date, days) {
+                    if (!date || isNaN(date.getTime())) return new Date();
+                    var d = new Date(date.getTime());
+                    d.setDate(d.getDate() + days);
+                    return d;
+                }
+
                 function formatDate(date) {
+                    if (!date || isNaN(date.getTime())) return qsTr("---");
+
                     var dd = date.getDate();
                     var mm = date.getMonth() + 1;
                     var yyyy = date.getFullYear();
@@ -584,19 +604,39 @@ ApplicationWindow {
                     return dd + '.' + mm + '.' + yyyy;
                 }
 
-                function getDayName(dayIndex) {
-                    var days = [qsTr("Нд"), qsTr("Пн"), qsTr("Вт"), qsTr("Ср"), qsTr("Чт"), qsTr("Пт"), qsTr("Сб")];
-                    return days[dayIndex];
+                function getIsoDateString(date) {
+                    if (!date || isNaN(date.getTime())) return "";
+
+                    var dd = date.getDate();
+                    var mm = date.getMonth() + 1;
+                    var yyyy = date.getFullYear();
+                    if (dd < 10) dd = '0' + dd;
+                    if (mm < 10) mm = '0' + mm;
+                    return yyyy + '-' + mm + '-' + dd;
                 }
 
                 function getDaysForWeek(startDate) {
                     var days = [];
+                    if (!startDate || isNaN(startDate.getTime())) return days;
+
                     var current = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
                     for (var i = 0; i < 7; i++) {
                         days.push(new Date(current.getTime()));
                         current.setDate(current.getDate() + 1);
                     }
                     return days;
+                }
+
+                function getDayNameById(dayId) {
+                    var days = { 1: qsTr("Пн"), 2: qsTr("Вт"), 3: qsTr("Ср"), 4: qsTr("Чт"), 5: qsTr("Пт"), 6: qsTr("Сб"), 7: qsTr("Нд") };
+                    return days[dayId] || qsTr("---");
+                }
+
+                function getDayIdFromDate(date) {
+                    if (!date || isNaN(date.getTime())) return 0;
+
+                    var dayIndex = date.getDay();
+                    return dayIndex === 0 ? 7 : dayIndex;
                 }
             }
 
@@ -607,77 +647,135 @@ ApplicationWindow {
             }
 
             function loadNotes() {
+                console.log("--- Starting loadNotes() for view:", diaryPage.currentView);
                 if (dbManager && diaryPage.currentUserId > 0) {
                     var allNotes = dbManager.getNotesForUser(diaryPage.currentUserId);
+                    console.log("Total notes fetched from DB:", allNotes.length);
 
                     if (currentView === 0) {
                         notesModel.clear();
                         for (var i = 0; i < allNotes.length; i++) {
                             notesModel.append(allNotes[i]);
                         }
+                        console.log("Notes loaded into All Records view. Count:", notesModel.count);
+
                     } else if (currentView === 1) {
                         weekNotesModel.clear();
 
                         var start = diaryPage.currentWeekStart;
-                        var end = dateHelper.addWeeks(start, 1);
+                        var end = dateHelper.addDays(start, 7);
+                        var today = new Date();
+                        today.setHours(0, 0, 0, 0);
 
-                        var startISO = start.toISOString().split('T')[0];
-                        var endISO = end.toISOString().split('T')[0];
+                        var groupedDays = {};
+                        var weekDays = dateHelper.getDaysForWeek(start);
+                        console.log("Week start:", dateHelper.formatDate(start), " | Week end (exclusive):", dateHelper.formatDate(end));
 
-                        var filteredNotes = [];
-                        for (var j = 0; j < allNotes.length; j++) {
-                            var note = allNotes[j];
-                            if (note.executionDate && note.executionDate !== "") {
-                                var noteDate = note.executionDate.toString().substring(0, 10);
-                                if (noteDate >= startISO && noteDate < endISO) {
-                                    filteredNotes.push(note);
+                        for (var k = 0; k < 7; k++) {
+                            var dayDate = weekDays[k];
+                            var dayId = dateHelper.getDayIdFromDate(dayDate);
+                            console.log(`Init Day [${k+1}]: ID=${dayId}, Name=${dateHelper.getDayNameById(dayId)}, Date=${dateHelper.formatDate(dayDate)}`);
+
+                            var dayData = {
+                                date: dayDate,
+                                dayName: dateHelper.getDayNameById(dayId),
+                                isToday: dayDate.toDateString() === today.toDateString(),
+                                notesJson: "[]",
+                                isEmpty: true
+                            };
+                            groupedDays[dayId] = dayData;
+                        }
+
+                        for (let l = 0; l < allNotes.length; l++) {
+                            let note = allNotes[l];
+                            var isRecurring = note.taskType === qsTr("Повторюване");
+                            console.log(`Processing Note ${l + 1}: ${note.title} | Type: ${note.taskType} | Exec Date: ${note.execution_date}`);
+
+                            if (note.execution_date && typeof note.execution_date === 'string' && note.execution_date.length >= 10) {
+                                var noteExecutionDateISO = note.execution_date.substring(0, 10);
+                                var noteExecutionDateObj = new Date(noteExecutionDateISO);
+                                noteExecutionDateObj.setHours(0, 0, 0, 0);
+
+                                var createdDateObj = new Date(note.created_date.substring(0, 10));
+                                createdDateObj.setHours(0, 0, 0, 0);
+
+                                if (isRecurring) {
+                                    for (let dayIdCurrent = 1; dayIdCurrent <= 7; dayIdCurrent++) {
+                                        var dayGroup = groupedDays[dayIdCurrent];
+                                        if (!dayGroup) continue;
+
+                                        var dayDateObj = dayGroup.date;
+
+                                        if (!(dayDateObj.getTime() >= start.getTime() && dayDateObj.getTime() < end.getTime())) {
+                                            continue;
+                                        }
+
+                                        var isAfterCreation = dayDateObj.getTime() >= createdDateObj.getTime();
+                                        var isBeforeOrOnExecution = dayDateObj.getTime() <= noteExecutionDateObj.getTime();
+
+                                        if (isAfterCreation && isBeforeOrOnExecution) {
+                                            var clonedNote = JSON.parse(JSON.stringify(note));
+                                            clonedNote.displayType = qsTr("Повтор");
+
+                                            if (dayDateObj.toDateString() === createdDateObj.toDateString()) {
+                                                clonedNote.displayType = qsTr("Початок Повтору");
+                                            } else if (dayDateObj.toDateString() === noteExecutionDateObj.toDateString()) {
+                                                clonedNote.displayType = qsTr("Кінець Повтору");
+                                            }
+
+                                            if (!dayGroup.notesArray) {
+                                                dayGroup.notesArray = [];
+                                            }
+                                            dayGroup.notesArray.push(clonedNote);
+                                            dayGroup.isEmpty = false;
+                                            console.log(`    -> ADDED (Recurring) to day: ${dayGroup.dayName} (${dateHelper.formatDate(dayDateObj)})`);
+                                        }
+                                    }
+
+                                } else {
+                                    if (noteExecutionDateObj.getTime() >= start.getTime() && noteExecutionDateObj.getTime() < end.getTime()) {
+                                        var executionDayIdForWeek = dateHelper.getDayIdFromDate(noteExecutionDateObj);
+
+                                        if (groupedDays[executionDayIdForWeek]) {
+                                            note.displayType = qsTr("Подія");
+
+                                            if (!groupedDays[executionDayIdForWeek].notesArray) {
+                                                groupedDays[executionDayIdForWeek].notesArray = [];
+                                            }
+                                            groupedDays[executionDayIdForWeek].notesArray.push(note);
+                                            groupedDays[executionDayIdForWeek].isEmpty = false;
+                                            console.log(`    -> ADDED (Single) to day: ${groupedDays[executionDayIdForWeek].dayName} (${dateHelper.formatDate(groupedDays[executionDayIdForWeek].date)})`);
+                                        }
+                                    }
                                 }
                             }
                         }
-                        var groupedNotes = {};
-                        var todayDate = new Date();
-                        var weekDays = dateHelper.getDaysForWeek(start);
-                        for (var k = 0; k < 7; k++) {
-                            var dayDate = weekDays[k];
-                            var dayISO = dayDate.toISOString().split('T')[0];
 
-                            groupedNotes[dayISO] = {
-                                date: dayDate,
-                                notes: []
-                            };
-                        }
-                        for (let l = 0; l < filteredNotes.length; l++) {
-                            let note = filteredNotes[l];
-                            var noteDateKey = "";
+                        var notesCount = 0;
+                        for (var dayId = 1; dayId <= 7; dayId++) {
+                            var dayData = groupedDays[dayId];
+                            if (!dayData) continue;
 
-                            if (note.executionDate && typeof note.executionDate === 'string' && note.executionDate.length >= 10) {
-                                noteDateKey = note.executionDate.substring(0, 10);
-                            } else {
-                                console.error("Нотатка має некоректний executionDate:", note.title);
-                                continue;
-                            }
-
-                            if (groupedNotes[noteDateKey]) {
-                                groupedNotes[noteDateKey].notes.push(note);
-                            } else {
-                                console.warn("Нотатка знайдена, але поза діапазоном груп поточного тижня: ", noteDateKey, note.title);
-                            }
-                        }
-                        weekNotesModel.clear();
-
-                        var sortedKeys = Object.keys(groupedNotes).sort();
-
-                        for (var keyIndex = 0; keyIndex < sortedKeys.length; keyIndex++) {
-                            var key = sortedKeys[keyIndex];
-                            if (groupedNotes.hasOwnProperty(key)) {
-                                weekNotesModel.append({
-                                    date: groupedNotes[key].date,
-                                    dayName: dateHelper.getDayName(groupedNotes[key].date.getDay()),
-                                    notes: groupedNotes[key].notes,
-                                    isToday: groupedNotes[key].date.toDateString() === todayDate.toDateString()
+                            if (dayData.notesArray && dayData.notesArray.length > 0) {
+                                dayData.notesArray.sort(function(a, b) {
+                                    return a.created_time.localeCompare(b.created_time);
                                 });
+
+                                dayData.notesJson = JSON.stringify(dayData.notesArray);
+                                notesCount += dayData.notesArray.length;
+                            } else {
+                                dayData.notesJson = "[]";
                             }
+
+                            weekNotesModel.append({
+                                date: dayData.date,
+                                dayName: dayData.dayName,
+                                notesJson: dayData.notesJson,
+                                isToday: dayData.isToday,
+                                isEmpty: dayData.isEmpty
+                            });
                         }
+                        console.log("--- Load finished. Total tasks displayed:", notesCount);
                     }
                 }
             }
@@ -698,19 +796,10 @@ ApplicationWindow {
                     var textId = dbManager.getColorIdByHex("text_colors", window.currentTextColor);
                     var fontId = 1;
 
-                    if (accentId <= 0) {
-                        dialogRef.show(qsTr("Помилка: Не вдалося знайти ID для акцентного кольору: ") + window.accentColor, true);
+                    if (accentId <= 0 || backgroundId <= 0 || textId <= 0) {
+                        dialogRef.show(qsTr("Помилка: Не вдалося знайти ID для одного з вибраних кольорів. Перевірте базу даних."), true);
                         return;
                     }
-                    if (backgroundId <= 0) {
-                        dialogRef.show(qsTr("Помилка: Не вдалося знайти ID для фонового кольору: ") + window.backgroundColor, true);
-                        return;
-                    }
-                    if (textId <= 0) {
-                        dialogRef.show(qsTr("Помилка: Не вдалося знайти ID для кольору тексту: ") + window.currentTextColor, true);
-                        return;
-                    }
-
 
                     if (dbManager.saveUserSettings(currentUserId, accentId, backgroundId, textId)) {
                         diaryPage.accentColorId = accentId;
@@ -768,7 +857,7 @@ ApplicationWindow {
                                 }
                                 ToolButton {
                                     Layout.alignment: Qt.AlignVCenter
-                                    contentItem: Label { text: "⚙️"; font.pixelSize: 24; color: "white" }
+                                    contentItem: Label { text: "⚙️"; font.pixelSize: 24; color: "white"; font.family: "Roboto" }
                                     onClicked: drawer.open()
                                 }
                             }
@@ -809,7 +898,7 @@ ApplicationWindow {
                     Layout.topMargin: 10
                     Layout.bottomMargin: 10
                     ToolButton {
-                        contentItem: Label { text: qsTr("◀️"); font.pixelSize: 18 }
+                        contentItem: Label { text: qsTr("◀️"); font.pixelSize: 18; font.family: "Roboto" }
                         Layout.alignment: Qt.AlignVCenter
                         onClicked: diaryPage.goToPreviousWeek()
                     }
@@ -817,7 +906,7 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         text: qsTr("Тиждень: %1 - %2")
                             .arg(dateHelper.formatDate(diaryPage.currentWeekStart))
-                            .arg(dateHelper.formatDate(dateHelper.addWeeks(diaryPage.currentWeekStart, 6)))
+                            .arg(dateHelper.formatDate(dateHelper.addDays(diaryPage.currentWeekStart, 6)))
                         Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
                         font.pixelSize: 16
                         font.bold: true
@@ -825,7 +914,7 @@ ApplicationWindow {
                         color: window.currentTextColor
                     }
                     ToolButton {
-                        contentItem: Label { text: qsTr("▶️"); font.pixelSize: 18 }
+                        contentItem: Label { text: qsTr("▶️"); font.pixelSize: 18; font.family: "Roboto" }
                         Layout.alignment: Qt.AlignVCenter
                         onClicked: diaryPage.goToNextWeek()
                     }
@@ -918,11 +1007,19 @@ ApplicationWindow {
                                                     font.family: "Roboto"
                                                 }
                                                 Label {
-                                                    text: " | " + model.priority;
+                                                    text: model.execution_date ? (" | " + qsTr("Виконати до: ") + formatDbDate(model.execution_date)) : "";
+                                                    font.pixelSize: 12;
+                                                    color: Material.color(Material.Indigo, Material.Shade700);
+                                                    font.family: "Roboto"
+                                                }
+                                            }
+                                            RowLayout {
+                                                Label {
+                                                    text: model.priority;
                                                     font.pixelSize: 12;
                                                     color: model.priority === qsTr("Висока") ? Material.color(Material.Red, Material.Shade700) :
-                                                           model.priority === qsTr("Середня") ? Material.color(Material.Blue, Material.Shade700) :
-                                                           model.priority === qsTr("Низька") ? Material.color(Material.Green, Material.Shade700) : Material.color(Material.Grey, Material.Shade700)
+                                                            model.priority === qsTr("Середня") ? Material.color(Material.Blue, Material.Shade700) :
+                                                            model.priority === qsTr("Низька") ? Material.color(Material.Green, Material.Shade700) : Material.color(Material.Grey, Material.Shade700)
                                                     font.family: "Roboto"
                                                 }
                                                 Label {
@@ -937,7 +1034,7 @@ ApplicationWindow {
                                             id: deleteButton
                                             Layout.alignment: Qt.AlignVCenter
                                             width: 40; height: 40
-                                            visible: noteDelegate.hovered
+                                            visible: noteDelegate && noteDelegate.hovered === true
                                             contentItem: Label {
                                                 text: qsTr("🗑️")
                                                 font.pixelSize: 24
@@ -968,146 +1065,182 @@ ApplicationWindow {
                             }
                         }
                     }
+
                     Component {
                         id: weekView
-                        ListView {
-                            id: weekList
-                            anchors.fill: parent
-                            anchors.topMargin: 10
-                            anchors.bottomMargin: 76
-                            anchors.leftMargin: 10
-                            anchors.rightMargin: 10
-                            spacing: 15
-                            model: weekNotesModel
-                            ColumnLayout {
-                                visible: weekNotesModel.count === 0 && !contentLoader.loading
-                                anchors.centerIn: parent
+                        ColumnLayout {
+                            width: parent.width
+                            height: parent.height
+
+                            ListView {
+                                id: weekList
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                model: weekNotesModel
                                 spacing: 10
-                                Label { text: qsTr("Нагадувань ще нема"); font.pixelSize: 20; Layout.alignment: Qt.AlignHCenter; font.family: "Roboto"; color: window.currentTextColor }
-                                Label { text: qsTr("Створіть нотатку з датою виконання, щоб побачити її тут."); font.pixelSize: 14; Layout.alignment: Qt.AlignHCenter; font.family: "Roboto"; color: window.currentTextColor }
-                            }
+                                clip: true
 
-                            delegate: ColumnLayout {
-                                width: weekList.width
-                                spacing: 5
+                                delegate: ColumnLayout {
+                                    id: dayDelegateRoot
+                                    width: weekList.width
+                                    spacing: 5
 
-                                Label {
-                                    text: qsTr("%1, %2").arg(dateHelper.getDayName(model.date.getDay())).arg(dateHelper.formatDate(model.date))
-                                    font.pixelSize: 18
-                                    font.bold: true
-                                    color: model.isToday ? Material.color(Material.Indigo) : window.currentTextColor
-                                    font.family: "Roboto"
-                                }
+                                    property var dayDate: model.date
+                                    property var dayName: model.dayName
+                                    property var notesJson: model.notesJson
+                                    property bool isToday: model.isToday || false
+                                    property bool isEmpty: model.isEmpty || true
 
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    height: 1
-                                    color: Material.color(Material.Grey, Material.Shade300)
-                                }
-                                Repeater {
-                                    model: model.notes || []
-                                    Layout.fillWidth: true
+                                    property var dayNotes: {
+                                        try {
+                                            if (notesJson && notesJson !== "[]") {
+                                                return JSON.parse(notesJson);
+                                            }
+                                        } catch (e) {
+                                            console.error("Error parsing notes JSON:", e);
+                                        }
+                                        return [];
+                                    }
 
-                                    delegate: Control {
-                                        id: dayNoteDelegate
-                                        height: 80
+                                    visible: dayName !== undefined && dayName !== ""
+
+                                    Rectangle {
+                                        id: dayHeader
+                                        Layout.fillWidth: true
+                                        height: 40
+                                        Layout.margins: 5
+                                        radius: 5
+                                        color: isToday ? Material.color(Material.Yellow, Material.Shade200) : window.backgroundColor
+
+                                        Label {
+                                            text: dayName + ", " +
+                                                    (dayDate ? dateHelper.formatDate(dayDate) : "---") +
+                                                    (isToday ? " " + qsTr("(Сьогодні)") : "")
+                                            font.pixelSize: 16
+                                            font.bold: true
+                                            color: window.currentTextColor
+                                            font.family: "Roboto"
+                                            anchors.centerIn: parent
+                                            leftPadding: 10
+                                            rightPadding: 10
+                                        }
+                                    }
+
+                                    Column {
                                         width: parent.width
-                                        hoverEnabled: true
-                                        clip: true
-                                        background: Rectangle {
-                                            anchors.fill: parent
-                                            color: dayNoteDelegate.hovered ? Material.color(Material.Grey, Material.Shade50) : "white"
-                                            radius: 8
-                                            border.color: Material.color(Material.Grey, Material.Shade300)
-                                            border.width: 1
-                                        }
+                                        spacing: 5
+                                        Layout.leftMargin: 15
+                                        Layout.rightMargin: 15
 
-                                        MouseArea {
-                                            anchors.fill: parent
-                                            anchors.rightMargin: 60
-                                            onClicked: {
-                                                var detailInstance = noteDetailPage.createObject(stackRef, {
-                                                    stackView: stackRef,
-                                                    noteData: model
-                                                });
-                                                if (detailInstance) {
-                                                    stackRef.push(detailInstance);
-                                                }
+                                        Rectangle {
+                                            width: parent.width
+                                            height: 40
+                                            color: "transparent"
+                                            visible: dayNotes.length === 0
+                                            Label {
+                                                anchors.centerIn: parent
+                                                text: qsTr("Нотаток немає")
+                                                color: Material.color(Material.Grey, Material.Shade500)
+                                                font.pixelSize: 14
+                                                font.family: "Roboto"
                                             }
                                         }
 
-                                        RowLayout {
-                                            spacing: 10
-                                            anchors.fill: parent
-                                            anchors.margins: 10
-                                            ColumnLayout {
-                                                Layout.fillWidth: true
-                                                Label { text: model.title; font.pixelSize: 16; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight; font.family: "Roboto"; color: window.currentTextColor }
-                                                RowLayout {
-                                                    Label {
-                                                        text: formatDbDate(model.created_date);
-                                                        font.pixelSize: 12;
-                                                        color: Material.color(Material.Grey, Material.Shade700)
-                                                        font.family: "Roboto"
-                                                    }
-                                                    Label {
-                                                        text: " | " + model.priority;
-                                                        font.pixelSize: 12;
-                                                        color: model.priority === qsTr("Висока") ? Material.color(Material.Red, Material.Shade700) :
-                                                               model.priority === qsTr("Середня") ? Material.color(Material.Blue, Material.Shade700) :
-                                                               model.priority === qsTr("Низька") ? Material.color(Material.Green, Material.Shade700) : Material.color(Material.Grey, Material.Shade700)
-                                                        font.family: "Roboto"
-                                                    }
-                                                    Label {
-                                                        text: " | " + model.activityType;
-                                                        font.pixelSize: 12;
-                                                        color: Material.color(Material.Indigo, Material.Shade700)
-                                                        font.family: "Roboto"
-                                                    }
-                                                }
-                                            }
-                                            ToolButton {
-                                                id: deleteDayNoteButton
-                                                Layout.alignment: Qt.AlignVCenter
-                                                width: 40; height: 40
-                                                visible: dayNoteDelegate.hovered
-                                                contentItem: Label {
-                                                    text: qsTr("🗑️"); font.pixelSize: 24; color: Material.color(Material.Red, Material.Shade700);
-                                                    horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
-                                                }
+                                        Repeater {
+                                            model: dayNotes
+
+                                            delegate: Control {
+                                                id: weekNoteDelegate
+                                                height: 80
+                                                width: parent.width
+                                                hoverEnabled: true
+                                                clip: true
+                                                Layout.topMargin: 5
+                                                Layout.bottomMargin: 5
+
+                                                property var currentNote: modelData
+
+                                                visible: currentNote !== undefined && currentNote !== null
+
                                                 background: Rectangle {
-                                                    radius: 4;
-                                                    color: deleteDayNoteButton.pressed ? Material.color(Material.Red, Material.Shade100) : "transparent";
+                                                    anchors.fill: parent
+                                                    color: (weekNoteDelegate.hovered ? Material.color(Material.Grey, Material.Shade50) : "white")
+                                                    radius: 8
+                                                    border.color: Material.color(Material.Grey, Material.Shade300)
+                                                    border.width: 1
                                                 }
-                                                onClicked: {
-                                                    var noteId = model.id;
-                                                    if (noteId && noteId > 0) {
-                                                        if (dbManager.deleteNote(noteId)) {
-                                                            diaryPage.loadNotes();
-                                                            dialog.show(qsTr("Запис успішно видалено."), false);
-                                                        } else {
-                                                            dialog.show(qsTr("Помилка видалення запису з бази даних!"), true);
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    anchors.rightMargin: 60
+                                                    enabled: currentNote !== undefined && currentNote !== null
+                                                    onClicked: {
+                                                        var detailInstance = noteDetailPage.createObject(stackRef, {
+                                                            stackView: stackRef,
+                                                            noteData: currentNote
+                                                        });
+                                                        if (detailInstance) {
+                                                            stackRef.push(detailInstance);
                                                         }
-                                                    } else {
-                                                        dialog.show(qsTr("Критична помилка: ID нотатки відсутній або недійсний."), true);
                                                     }
+                                                }
+
+                                                RowLayout {
+                                                    spacing: 10
+                                                    anchors.fill: parent
+                                                    anchors.margins: 10
+                                                    ColumnLayout {
+                                                        Layout.fillWidth: true
+                                                        Label {
+                                                            text: currentNote ? currentNote.title : "";
+                                                            font.pixelSize: 16;
+                                                            font.bold: true;
+                                                            Layout.fillWidth: true;
+                                                            elide: Text.ElideRight;
+                                                            font.family: "Roboto";
+                                                            color: window.currentTextColor
+                                                        }
+
+                                                        RowLayout {
+                                                            Label {
+                                                                text: currentNote ? formatDbDate(currentNote.created_date) : "";
+                                                                font.pixelSize: 12;
+                                                                color: Material.color(Material.Grey, Material.Shade700)
+                                                                font.family: "Roboto"
+                                                            }
+                                                            Label {
+                                                                text: currentNote && currentNote.displayType ? (" | " + currentNote.displayType) : "";
+                                                                font.pixelSize: 12;
+                                                                color: Material.color(Material.Teal, Material.Shade700);
+                                                                font.family: "Roboto"
+                                                            }
+                                                        }
+
+                                                        RowLayout {
+                                                            Label {
+                                                                text: currentNote ? currentNote.priority : "";
+                                                                font.pixelSize: 12;
+                                                                color: currentNote && currentNote.priority === qsTr("Висока") ? Material.color(Material.Red, Material.Shade700) :
+                                                                        currentNote && currentNote.priority === qsTr("Середня") ? Material.color(Material.Blue, Material.Shade700) :
+                                                                        currentNote && currentNote.priority === qsTr("Низька") ? Material.color(Material.Green, Material.Shade700) : Material.color(Material.Grey, Material.Shade700)
+                                                                font.family: "Roboto"
+                                                            }
+                                                            Label {
+                                                                text: currentNote ? " | " + currentNote.activityType : "";
+                                                                font.pixelSize: 12;
+                                                                color: Material.color(Material.Indigo, Material.Shade700)
+                                                                font.family: "Roboto"
+                                                            }
+                                                        }
+                                                    }
+
                                                 }
                                             }
                                         }
                                     }
                                 }
-                                Label {
-                                    visible: Repeater.count === 0
-                                    text: qsTr("Немає запланованих справ на цей день.")
-                                    font.pixelSize: 12
-                                    color: Material.color(Material.Grey)
-                                    Layout.leftMargin: 10
-                                    font.family: "Roboto"
-                                }
                             }
                         }
-                    }
-                }
+                    } }
             }
             Drawer {
                 id: drawer
@@ -1234,6 +1367,7 @@ ApplicationWindow {
                         onClicked: {
                             drawer.close();
                             notesModel.clear();
+                            weekNotesModel.clear();
                             diaryPage.currentUserId = -1;
                             dialog.show(qsTr("Вихід успішний. Повернення до сторінки входу."), false);
                             Qt.callLater(function() {
@@ -1277,6 +1411,7 @@ ApplicationWindow {
             }
         }
     }
+
     Component {
         id: registerPage
         Page {
@@ -1418,13 +1553,14 @@ ApplicationWindow {
                 Button {
                     text: qsTr("Назад до входу")
                     Layout.fillWidth: true
-                    Material.background: Material.color(Material.Red)
+                    Material.background: Material.color(Material.Grey)
                     font.family: "Roboto"
                     onClicked: stack.replace(loginPage)
                 }
             }
         }
     }
+
     Component {
         id: loginPage
         Page {
@@ -1528,7 +1664,6 @@ ApplicationWindow {
                                 });
 
                                 if (diaryInstance) {
-                                    diaryInstance.loadNotes();
                                     Qt.callLater(function() { stack.replace(diaryInstance); })
                                 } else {
                                     dialog.show(qsTr("Критична помилка ініціалізації сторінки щоденника."), true);
@@ -1548,11 +1683,12 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     Material.background: Material.color(Material.Grey)
                     font.family: "Roboto"
-                    onClicked: Qt.callLater(function() { stack.replace(registerPage) })
+                    onClicked: stack.replace(registerPage)
                 }
             }
         }
     }
+
     StackView {
         id: stack
         anchors.fill: parent

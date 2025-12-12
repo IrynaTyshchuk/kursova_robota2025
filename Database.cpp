@@ -19,6 +19,18 @@ Database::Database(QObject *parent)
     initializeDatabase();
 }
 
+int Database::getDayOfWeekId(const QString &dateString)
+{
+    if (dateString.isEmpty()) return 0;
+
+    QDate date = QDate::fromString(dateString, "yyyy-MM-dd");
+    if (!date.isValid()) {
+        qWarning() << "Недійсний формат дати для getDayOfWeekId:" << dateString;
+        return 0;
+    }
+    return date.dayOfWeek();
+}
+
 void Database::initializeDatabase()
 {
     QString dbPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
@@ -83,13 +95,26 @@ void Database::initializeDatabase()
         query.exec("INSERT OR IGNORE INTO text_colors (hex_code) VALUES ('#800080')");
     }
 
-    // ТАБЛИЦЯ font_families: Залишаємо тільки "Roboto" з ID 1
     success = query.exec("CREATE TABLE IF NOT EXISTS font_families ("
                          "id INTEGER PRIMARY KEY AUTOINCREMENT,"
                          "name TEXT UNIQUE NOT NULL)");
     if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю font_families:" << query.lastError().text(); }
     else {
         query.exec("INSERT OR IGNORE INTO font_families (id, name) VALUES (1, 'Roboto')");
+    }
+
+    success = query.exec("CREATE TABLE IF NOT EXISTS week_days ("
+                         "id INTEGER PRIMARY KEY,"
+                         "name TEXT UNIQUE NOT NULL)");
+    if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю week_days:" << query.lastError().text(); }
+    else {
+        query.exec("INSERT OR IGNORE INTO week_days (id, name) VALUES (1, 'Пн')");
+        query.exec("INSERT OR IGNORE INTO week_days (id, name) VALUES (2, 'Вт')");
+        query.exec("INSERT OR IGNORE INTO week_days (id, name) VALUES (3, 'Ср')");
+        query.exec("INSERT OR IGNORE INTO week_days (id, name) VALUES (4, 'Чт')");
+        query.exec("INSERT OR IGNORE INTO week_days (id, name) VALUES (5, 'Пт')");
+        query.exec("INSERT OR IGNORE INTO week_days (id, name) VALUES (6, 'Сб')");
+        query.exec("INSERT OR IGNORE INTO week_days (id, name) VALUES (7, 'Нд')");
     }
 
     success = query.exec("CREATE TABLE IF NOT EXISTS users ("
@@ -132,11 +157,6 @@ void Database::initializeDatabase()
         query.exec("INSERT OR IGNORE INTO priorities (name, color_hex) VALUES ('Низька', '#4CAF50')");
     }
 
-    success = query.exec("CREATE TABLE IF NOT EXISTS activities ("
-                         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                         "name TEXT UNIQUE NOT NULL)");
-    if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю activities:" << query.lastError().text(); }
-
     success = query.exec("CREATE TABLE IF NOT EXISTS repeat_options ("
                          "id INTEGER PRIMARY KEY AUTOINCREMENT,"
                          "name TEXT UNIQUE NOT NULL,"
@@ -153,6 +173,14 @@ void Database::initializeDatabase()
         query.exec("INSERT OR IGNORE INTO repeat_options (name, value_minutes) VALUES ('1 день', 1440)");
     }
 
+    success = query.exec("CREATE TABLE IF NOT EXISTS activities ("
+                         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                         "user_id INTEGER NOT NULL,"
+                         "name TEXT NOT NULL,"
+                         "UNIQUE(user_id, name),"
+                         "FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE)");
+    if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю activities:" << query.lastError().text(); }
+
     success = query.exec("CREATE TABLE IF NOT EXISTS notes ("
                          "id INTEGER PRIMARY KEY AUTOINCREMENT,"
                          "user_id INTEGER NOT NULL,"
@@ -165,17 +193,21 @@ void Database::initializeDatabase()
                          "repeat_option_id INTEGER NULL,"
                          "created_date TEXT NOT NULL,"
                          "created_time TEXT NOT NULL,"
+                         "start_day_id INTEGER NULL,"
+                         "execution_day_id INTEGER NULL,"
                          "FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,"
                          "FOREIGN KEY(task_type_id) REFERENCES task_types(id),"
                          "FOREIGN KEY(priority_id) REFERENCES priorities(id),"
                          "FOREIGN KEY(activity_id) REFERENCES activities(id),"
-                         "FOREIGN KEY(repeat_option_id) REFERENCES repeat_options(id))");
+                         "FOREIGN KEY(repeat_option_id) REFERENCES repeat_options(id),"
+                         "FOREIGN KEY(start_day_id) REFERENCES week_days(id),"
+                         "FOREIGN KEY(execution_day_id) REFERENCES week_days(id))");
     if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю notes:" << query.lastError().text(); }
 
-    if (!query.exec("ALTER TABLE notes ADD COLUMN execution_date TEXT NULL")) {
-    }
-    if (!query.exec("ALTER TABLE notes ADD COLUMN repeat_option_id INTEGER NULL")) {
-    }
+    if (!query.exec("ALTER TABLE notes ADD COLUMN execution_date TEXT NULL")) { }
+    if (!query.exec("ALTER TABLE notes ADD COLUMN repeat_option_id INTEGER NULL")) { }
+    if (!query.exec("ALTER TABLE notes ADD COLUMN start_day_id INTEGER NULL")) {}
+    if (!query.exec("ALTER TABLE notes ADD COLUMN execution_day_id INTEGER NULL")) {}
 }
 
 QByteArray Database::hashPassword(const QString &password)
@@ -189,24 +221,15 @@ QString Database::hashPasswordToHex(const QString &password)
     return QString(hash.toHex());
 }
 
-int Database::getIdOnly(const QString &tableName, const QString &columnName, const QString &value)
-{
-    if (value.isEmpty()) return 0;
-
-    QSqlQuery query(db);
-    query.prepare(QString("SELECT id FROM %1 WHERE %2 = :value").arg(tableName, columnName));
-    query.bindValue(":value", value);
-
-    if (query.exec() && query.next()) {
-        return query.value(0).toInt();
-    }
-    return 0;
-}
-
 int Database::getIdOrCreate(const QString &tableName, const QString &columnName, const QString &value)
 {
     if (value.isEmpty()) {
         return 0;
+    }
+
+    if (tableName == "activities") {
+        qCritical() << "Помилка: Використання getIdOrCreate для таблиці activities. Використовуйте getOrCreateActivity().";
+        return -1;
     }
 
     QSqlQuery query(db);
@@ -227,6 +250,31 @@ int Database::getIdOrCreate(const QString &tableName, const QString &columnName,
         return -1;
     }
 }
+
+int Database::getOrCreateActivity(int userId, const QString &activityName)
+{
+    if (activityName.isEmpty() || userId <= 0) return 0;
+
+    QSqlQuery query(db);
+    query.prepare("SELECT id FROM activities WHERE user_id = :user_id AND name = :name");
+    query.bindValue(":user_id", userId);
+    query.bindValue(":name", activityName);
+    if (query.exec() && query.next()) {
+        return query.value(0).toInt();
+    }
+
+    query.prepare("INSERT INTO activities (user_id, name) VALUES (:user_id, :name)");
+    query.bindValue(":user_id", userId);
+    query.bindValue(":name", activityName);
+
+    if (query.exec()) {
+        return query.lastInsertId().toInt();
+    } else {
+        qCritical() << "Помилка вставки в таблицю activities:" << query.lastError().text();
+        return -1;
+    }
+}
+
 
 QString Database::getColorHexById(const QString &tableName, int colorId)
 {
@@ -461,33 +509,49 @@ QVariant Database::addNote(int userId, const QVariantMap &noteData)
         return QVariant();
     }
 
-    int taskTypeId = getIdOnly("task_types", "name", noteData.value("taskType").toString());
-    int priorityId = getIdOnly("priorities", "name", noteData.value("priority").toString());
-    int activityId = getIdOrCreate("activities", "name", noteData.value("activityType").toString());
-    int repeatOptionId = getIdOnly("repeat_options", "name", noteData.value("repeatOption").toString());
+    int taskTypeId = getIdOrCreate("task_types", "name", noteData.value("taskType").toString());
+    int priorityId = getIdOrCreate("priorities", "name", noteData.value("priority").toString());
+
+    int activityId = getOrCreateActivity(userId, noteData.value("activityType").toString());
+
+    int repeatOptionId = getIdOrCreate("repeat_options", "name", noteData.value("repeatOption").toString());
 
     if (activityId == -1) {
+        return QVariant();
+    }
+    if (taskTypeId == -1 || priorityId == -1 || repeatOptionId == -1) {
+        qCritical() << "Помилка: Не вдалося отримати ID для taskType/priority/repeatOption";
         return QVariant();
     }
 
     QString createdDate = QDateTime::currentDateTime().toString("yyyy-MM-dd");
     QString createdTime = QDateTime::currentDateTime().toString("HH:mm");
+
     QString executionDate = noteData.value("executionDate").toString();
 
+    int startDayId = getDayOfWeekId(createdDate);
+    int executionDayId = executionDate.isEmpty() ? 0 : getDayOfWeekId(executionDate);
+
     QSqlQuery query(db);
-    query.prepare("INSERT INTO notes (user_id, title, content, task_type_id, priority_id, activity_id, execution_date, repeat_option_id, created_date, created_time) "
-                  "VALUES (:user_id, :title, :content, :task_type_id, :priority_id, :activity_id, :execution_date, :repeat_option_id, :created_date, :created_time)");
+    query.prepare("INSERT INTO notes (user_id, title, content, task_type_id, priority_id, activity_id, execution_date, repeat_option_id, created_date, created_time, start_day_id, execution_day_id) "
+                  "VALUES (:user_id, :title, :content, :task_type_id, :priority_id, :activity_id, :execution_date, :repeat_option_id, :created_date, :created_time, :start_day_id, :execution_day_id)");
 
     query.bindValue(":user_id", userId);
     query.bindValue(":title", noteData.value("title").toString());
     query.bindValue(":content", noteData.value("content").toString());
+
     query.bindValue(":task_type_id", taskTypeId > 0 ? QVariant(taskTypeId) : QVariant());
     query.bindValue(":priority_id", priorityId > 0 ? QVariant(priorityId) : QVariant());
     query.bindValue(":activity_id", activityId > 0 ? QVariant(activityId) : QVariant());
+
     query.bindValue(":execution_date", executionDate.isEmpty() ? QVariant() : executionDate);
     query.bindValue(":repeat_option_id", repeatOptionId > 0 ? QVariant(repeatOptionId) : QVariant());
+
     query.bindValue(":created_date", createdDate);
     query.bindValue(":created_time", createdTime);
+
+    query.bindValue(":start_day_id", startDayId > 0 ? QVariant(startDayId) : QVariant());
+    query.bindValue(":execution_day_id", executionDayId > 0 ? QVariant(executionDayId) : QVariant());
 
     if (query.exec()) {
         return query.lastInsertId();
@@ -507,14 +571,17 @@ QVariantList Database::getNotesForUser(int userId)
 
     QSqlQuery query(db);
     query.prepare("SELECT n.id, n.title, n.content, n.created_date, n.created_time, n.execution_date, "
+                  "n.repeat_option_id, "
                   "tt.name AS taskType, p.name AS priority, p.color_hex AS priorityColor, a.name AS activityType, "
-                  "ro.name AS repeatOptionName "
+                  "ro.name AS repeatOption, "
+                  "n.execution_day_id "
                   "FROM notes n "
                   "LEFT JOIN task_types tt ON n.task_type_id = tt.id "
                   "LEFT JOIN priorities p ON n.priority_id = p.id "
                   "LEFT JOIN activities a ON n.activity_id = a.id "
                   "LEFT JOIN repeat_options ro ON n.repeat_option_id = ro.id "
-                  "WHERE n.user_id = :user_id ORDER BY n.id DESC");
+                  "WHERE n.user_id = :user_id "
+                  "ORDER BY n.execution_date ASC, n.id DESC");
     query.bindValue(":user_id", userId);
 
     if (query.exec()) {
@@ -523,14 +590,19 @@ QVariantList Database::getNotesForUser(int userId)
             note["id"] = query.value("id").toInt();
             note["title"] = query.value("title").toString();
             note["content"] = query.value("content").toString();
-            note["executionDate"] = query.value("execution_date").toString();
-            note["repeatOption"] = query.value("repeatOptionName").toString();
-            note["creation_time"] = query.value("created_time").toString();
+
+            note["execution_date"] = query.value("execution_date").toString();
+            note["repeat_option_id"] = query.value("repeat_option_id").toInt();
+            note["repeatOption"] = query.value("repeatOption").toString();
+            note["created_time"] = query.value("created_time").toString();
             note["created_date"] = query.value("created_date").toString();
+
             note["taskType"] = query.value("taskType").toString();
             note["priority"] = query.value("priority").toString();
             note["priorityColor"] = query.value("priorityColor").toString();
             note["activityType"] = query.value("activityType").toString();
+            note["execution_day_id"] = query.value("execution_day_id").toInt();
+
             notesList.append(note);
         }
     } else {

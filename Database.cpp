@@ -22,7 +22,6 @@ Database::Database(QObject *parent)
 int Database::getDayOfWeekId(const QString &dateString)
 {
     if (dateString.isEmpty()) return 0;
-
     QDate date = QDate::fromString(dateString, "yyyy-MM-dd");
     if (!date.isValid()) {
         qWarning() << "Недійсний формат дати для getDayOfWeekId:" << dateString;
@@ -55,11 +54,10 @@ void Database::initializeDatabase()
     QSqlQuery query(db);
     bool success;
 
-    success = query.exec("CREATE TABLE IF NOT EXISTS accent_colors ("
-                         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                         "hex_code TEXT UNIQUE NOT NULL)");
-    if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю accent_colors:" << query.lastError().text(); }
-    else {
+    // Створення та міграція таблиць (вставлено без коментарів)
+
+    success = query.exec("CREATE TABLE IF NOT EXISTS accent_colors (" "id INTEGER PRIMARY KEY AUTOINCREMENT," "hex_code TEXT UNIQUE NOT NULL)");
+    if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю accent_colors:" << query.lastError().text(); } else {
         query.exec("INSERT OR IGNORE INTO accent_colors (hex_code) VALUES ('#3F51B5')");
         query.exec("INSERT OR IGNORE INTO accent_colors (hex_code) VALUES ('#F44336')");
         query.exec("INSERT OR IGNORE INTO accent_colors (hex_code) VALUES ('#4CAF50')");
@@ -68,11 +66,8 @@ void Database::initializeDatabase()
         query.exec("INSERT OR IGNORE INTO accent_colors (hex_code) VALUES ('#607D8B')");
     }
 
-    success = query.exec("CREATE TABLE IF NOT EXISTS background_colors ("
-                         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                         "hex_code TEXT UNIQUE NOT NULL)");
-    if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю background_colors:" << query.lastError().text(); }
-    else {
+    success = query.exec("CREATE TABLE IF NOT EXISTS background_colors (" "id INTEGER PRIMARY KEY AUTOINCREMENT," "hex_code TEXT UNIQUE NOT NULL)");
+    if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю background_colors:" << query.lastError().text(); } else {
         query.exec("INSERT OR IGNORE INTO background_colors (hex_code) VALUES ('#FFFFFF')");
         query.exec("INSERT OR IGNORE INTO background_colors (hex_code) VALUES ('#FFF9C4')");
         query.exec("INSERT OR IGNORE INTO background_colors (hex_code) VALUES ('#E1F5FE')");
@@ -82,11 +77,8 @@ void Database::initializeDatabase()
         query.exec("INSERT OR IGNORE INTO background_colors (hex_code) VALUES ('#FBE4D8')");
     }
 
-    success = query.exec("CREATE TABLE IF NOT EXISTS text_colors ("
-                         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                         "hex_code TEXT UNIQUE NOT NULL)");
-    if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю text_colors:" << query.lastError().text(); }
-    else {
+    success = query.exec("CREATE TABLE IF NOT EXISTS text_colors (" "id INTEGER PRIMARY KEY AUTOINCREMENT," "hex_code TEXT UNIQUE NOT NULL)");
+    if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю text_colors:" << query.lastError().text(); } else {
         query.exec("INSERT OR IGNORE INTO text_colors (hex_code) VALUES ('#000000')");
         query.exec("INSERT OR IGNORE INTO text_colors (hex_code) VALUES ('#555555')");
         query.exec("INSERT OR IGNORE INTO text_colors (hex_code) VALUES ('#FF0000')");
@@ -95,19 +87,13 @@ void Database::initializeDatabase()
         query.exec("INSERT OR IGNORE INTO text_colors (hex_code) VALUES ('#800080')");
     }
 
-    success = query.exec("CREATE TABLE IF NOT EXISTS font_families ("
-                         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                         "name TEXT UNIQUE NOT NULL)");
-    if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю font_families:" << query.lastError().text(); }
-    else {
+    success = query.exec("CREATE TABLE IF NOT EXISTS font_families (" "id INTEGER PRIMARY KEY AUTOINCREMENT," "name TEXT UNIQUE NOT NULL)");
+    if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю font_families:" << query.lastError().text(); } else {
         query.exec("INSERT OR IGNORE INTO font_families (id, name) VALUES (1, 'Roboto')");
     }
 
-    success = query.exec("CREATE TABLE IF NOT EXISTS week_days ("
-                         "id INTEGER PRIMARY KEY,"
-                         "name TEXT UNIQUE NOT NULL)");
-    if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю week_days:" << query.lastError().text(); }
-    else {
+    success = query.exec("CREATE TABLE IF NOT EXISTS week_days (" "id INTEGER PRIMARY KEY," "name TEXT UNIQUE NOT NULL)");
+    if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю week_days:" << query.lastError().text(); } else {
         query.exec("INSERT OR IGNORE INTO week_days (id, name) VALUES (1, 'Пн')");
         query.exec("INSERT OR IGNORE INTO week_days (id, name) VALUES (2, 'Вт')");
         query.exec("INSERT OR IGNORE INTO week_days (id, name) VALUES (3, 'Ср')");
@@ -117,52 +103,30 @@ void Database::initializeDatabase()
         query.exec("INSERT OR IGNORE INTO week_days (id, name) VALUES (7, 'Нд')");
     }
 
-    success = query.exec("CREATE TABLE IF NOT EXISTS users ("
-                         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                         "name TEXT NOT NULL,"
-                         "email TEXT UNIQUE NOT NULL,"
-                         "password_hash TEXT NOT NULL,"
-                         "accent_color_id INTEGER DEFAULT 1,"
-                         "background_color_id INTEGER DEFAULT 1,"
-                         "text_color_id INTEGER DEFAULT 1,"
-                         "font_family_id INTEGER DEFAULT 1,"
-                         "FOREIGN KEY(accent_color_id) REFERENCES accent_colors(id),"
-                         "FOREIGN KEY(background_color_id) REFERENCES background_colors(id),"
-                         "FOREIGN KEY(text_color_id) REFERENCES text_colors(id),"
-                         "FOREIGN KEY(font_family_id) REFERENCES font_families(id))");
+    success = query.exec("CREATE TABLE IF NOT EXISTS users (" "id INTEGER PRIMARY KEY AUTOINCREMENT," "name TEXT NOT NULL," "email TEXT UNIQUE NOT NULL," "password_hash TEXT NOT NULL," "accent_color_id INTEGER DEFAULT 1," "background_color_id INTEGER DEFAULT 1," "text_color_id INTEGER DEFAULT 1," "font_family_id INTEGER DEFAULT 1," "FOREIGN KEY(accent_color_id) REFERENCES accent_colors(id)," "FOREIGN KEY(background_color_id) REFERENCES background_colors(id)," "FOREIGN KEY(text_color_id) REFERENCES text_colors(id)," "FOREIGN KEY(font_family_id) REFERENCES font_families(id))");
     if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю users:" << query.lastError().text(); }
-
     if (!query.exec("ALTER TABLE users ADD COLUMN accent_color_id INTEGER DEFAULT 1")) { }
     if (!query.exec("ALTER TABLE users ADD COLUMN background_color_id INTEGER DEFAULT 1")) { }
     if (!query.exec("ALTER TABLE users ADD COLUMN text_color_id INTEGER DEFAULT 1")) { }
     if (!query.exec("ALTER TABLE users ADD COLUMN font_family_id INTEGER DEFAULT 1")) { }
 
-    success = query.exec("CREATE TABLE IF NOT EXISTS task_types ("
-                         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                         "name TEXT UNIQUE NOT NULL)");
-    if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю task_types:" << query.lastError().text(); }
-    else {
+    success = query.exec("CREATE TABLE IF NOT EXISTS task_types (" "id INTEGER PRIMARY KEY AUTOINCREMENT," "name TEXT UNIQUE NOT NULL)");
+    if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю task_types:" << query.lastError().text(); } else {
         query.exec("INSERT OR IGNORE INTO task_types (name) VALUES ('Одиничне')");
         query.exec("INSERT OR IGNORE INTO task_types (name) VALUES ('Повторюване')");
     }
 
-    success = query.exec("CREATE TABLE IF NOT EXISTS priorities ("
-                         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                         "name TEXT UNIQUE NOT NULL,"
-                         "color_hex TEXT)");
-    if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю priorities:" << query.lastError().text(); }
-    else {
+    success = query.exec("CREATE TABLE IF NOT EXISTS priorities (" "id INTEGER PRIMARY KEY AUTOINCREMENT," "name TEXT UNIQUE NOT NULL," "color_hex TEXT)");
+    if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю priorities:" << query.lastError().text(); } else {
         query.exec("INSERT OR IGNORE INTO priorities (name, color_hex) VALUES ('Висока', '#F44336')");
         query.exec("INSERT OR IGNORE INTO priorities (name, color_hex) VALUES ('Середня', '#2196F3')");
         query.exec("INSERT OR IGNORE INTO priorities (name, color_hex) VALUES ('Низька', '#4CAF50')");
     }
 
-    success = query.exec("CREATE TABLE IF NOT EXISTS repeat_options ("
-                         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                         "name TEXT UNIQUE NOT NULL,"
-                         "value_minutes INTEGER NOT NULL)");
-    if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю repeat_options:" << query.lastError().text(); }
-    else {
+    success = query.exec("CREATE TABLE IF NOT EXISTS repeat_options (" "id INTEGER PRIMARY KEY AUTOINCREMENT," "name TEXT UNIQUE NOT NULL," "value_minutes INTEGER NOT NULL DEFAULT 0)");
+    if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю repeat_options:" << query.lastError().text(); } else {
+        if (!query.exec("ALTER TABLE repeat_options ADD COLUMN value_minutes INTEGER NOT NULL DEFAULT 0")) {}
+        query.exec("UPDATE repeat_options SET value_minutes = CASE name WHEN '10 хв' THEN 10 WHEN '30 хв' THEN 30 WHEN '1 год' THEN 60 WHEN '3 год' THEN 180 WHEN '6 год' THEN 360 WHEN '12 год' THEN 720 WHEN '1 день' THEN 1440 ELSE 0 END WHERE value_minutes IS NULL OR value_minutes = 0");
         query.exec("INSERT OR IGNORE INTO repeat_options (name, value_minutes) VALUES ('Не повторювати', 0)");
         query.exec("INSERT OR IGNORE INTO repeat_options (name, value_minutes) VALUES ('10 хв', 10)");
         query.exec("INSERT OR IGNORE INTO repeat_options (name, value_minutes) VALUES ('30 хв', 30)");
@@ -173,35 +137,10 @@ void Database::initializeDatabase()
         query.exec("INSERT OR IGNORE INTO repeat_options (name, value_minutes) VALUES ('1 день', 1440)");
     }
 
-    success = query.exec("CREATE TABLE IF NOT EXISTS activities ("
-                         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                         "user_id INTEGER NOT NULL,"
-                         "name TEXT NOT NULL,"
-                         "UNIQUE(user_id, name),"
-                         "FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE)");
+    success = query.exec("CREATE TABLE IF NOT EXISTS activities (" "id INTEGER PRIMARY KEY AUTOINCREMENT," "user_id INTEGER NOT NULL," "name TEXT NOT NULL," "UNIQUE(user_id, name)," "FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE)");
     if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю activities:" << query.lastError().text(); }
 
-    success = query.exec("CREATE TABLE IF NOT EXISTS notes ("
-                         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                         "user_id INTEGER NOT NULL,"
-                         "title TEXT NOT NULL,"
-                         "content TEXT NOT NULL,"
-                         "task_type_id INTEGER NULL,"
-                         "priority_id INTEGER NULL,"
-                         "activity_id INTEGER NULL,"
-                         "execution_date TEXT NULL,"
-                         "repeat_option_id INTEGER NULL,"
-                         "created_date TEXT NOT NULL,"
-                         "created_time TEXT NOT NULL,"
-                         "start_day_id INTEGER NULL,"
-                         "execution_day_id INTEGER NULL,"
-                         "FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,"
-                         "FOREIGN KEY(task_type_id) REFERENCES task_types(id),"
-                         "FOREIGN KEY(priority_id) REFERENCES priorities(id),"
-                         "FOREIGN KEY(activity_id) REFERENCES activities(id),"
-                         "FOREIGN KEY(repeat_option_id) REFERENCES repeat_options(id),"
-                         "FOREIGN KEY(start_day_id) REFERENCES week_days(id),"
-                         "FOREIGN KEY(execution_day_id) REFERENCES week_days(id))");
+    success = query.exec("CREATE TABLE IF NOT EXISTS notes (" "id INTEGER PRIMARY KEY AUTOINCREMENT," "user_id INTEGER NOT NULL," "title TEXT NOT NULL," "content TEXT NOT NULL," "task_type_id INTEGER NULL," "priority_id INTEGER NULL," "activity_id INTEGER NULL," "execution_date TEXT NULL," "repeat_option_id INTEGER NULL," "created_date TEXT NOT NULL," "created_time TEXT NOT NULL," "start_day_id INTEGER NULL," "execution_day_id INTEGER NULL," "FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE," "FOREIGN KEY(task_type_id) REFERENCES task_types(id)," "FOREIGN KEY(priority_id) REFERENCES priorities(id)," "FOREIGN KEY(activity_id) REFERENCES activities(id)," "FOREIGN KEY(repeat_option_id) REFERENCES repeat_options(id)," "FOREIGN KEY(start_day_id) REFERENCES week_days(id)," "FOREIGN KEY(execution_day_id) REFERENCES week_days(id))");
     if (!success) { qCritical() << "Помилка: Не вдалося створити таблицю notes:" << query.lastError().text(); }
 
     if (!query.exec("ALTER TABLE notes ADD COLUMN execution_date TEXT NULL")) { }
@@ -223,32 +162,20 @@ QString Database::hashPasswordToHex(const QString &password)
 
 int Database::getIdOrCreate(const QString &tableName, const QString &columnName, const QString &value)
 {
-    if (value.isEmpty()) {
-        return 0;
-    }
-
-    if (tableName == "activities") {
-        qCritical() << "Помилка: Використання getIdOrCreate для таблиці activities. Використовуйте getOrCreateActivity().";
-        return -1;
-    }
+    if (value.isEmpty()) { return 0; }
+    if (tableName == "activities") { qCritical() << "Помилка: Використання getIdOrCreate для таблиці activities. Використовуйте getOrCreateActivity()."; return -1; }
 
     QSqlQuery query(db);
     query.prepare(QString("SELECT id FROM %1 WHERE %2 = :value").arg(tableName, columnName));
     query.bindValue(":value", value);
 
-    if (query.exec() && query.next()) {
-        return query.value(0).toInt();
-    }
+    if (query.exec() && query.next()) { return query.value(0).toInt(); }
 
     query.prepare(QString("INSERT INTO %1 (%2) VALUES (:value)").arg(tableName, columnName));
     query.bindValue(":value", value);
 
-    if (query.exec()) {
-        return query.lastInsertId().toInt();
-    } else {
-        qCritical() << "Помилка вставки в таблицю" << tableName << ":" << query.lastError().text();
-        return -1;
-    }
+    if (query.exec()) { return query.lastInsertId().toInt(); }
+    else { qCritical() << "Помилка вставки в таблицю" << tableName << ":" << query.lastError().text(); return -1; }
 }
 
 int Database::getOrCreateActivity(int userId, const QString &activityName)
@@ -259,22 +186,15 @@ int Database::getOrCreateActivity(int userId, const QString &activityName)
     query.prepare("SELECT id FROM activities WHERE user_id = :user_id AND name = :name");
     query.bindValue(":user_id", userId);
     query.bindValue(":name", activityName);
-    if (query.exec() && query.next()) {
-        return query.value(0).toInt();
-    }
+    if (query.exec() && query.next()) { return query.value(0).toInt(); }
 
     query.prepare("INSERT INTO activities (user_id, name) VALUES (:user_id, :name)");
     query.bindValue(":user_id", userId);
     query.bindValue(":name", activityName);
 
-    if (query.exec()) {
-        return query.lastInsertId().toInt();
-    } else {
-        qCritical() << "Помилка вставки в таблицю activities:" << query.lastError().text();
-        return -1;
-    }
+    if (query.exec()) { return query.lastInsertId().toInt(); }
+    else { qCritical() << "Помилка вставки в таблицю activities:" << query.lastError().text(); return -1; }
 }
-
 
 QString Database::getColorHexById(const QString &tableName, int colorId)
 {
@@ -282,24 +202,18 @@ QString Database::getColorHexById(const QString &tableName, int colorId)
     QSqlQuery query(db);
     query.prepare(QString("SELECT hex_code FROM %1 WHERE id = :id").arg(tableName));
     query.bindValue(":id", colorId);
-    if (query.exec() && query.next()) {
-        return query.value(0).toString();
-    }
+    if (query.exec() && query.next()) { return query.value(0).toString(); }
     return "";
 }
 
 int Database::getColorIdByHex(const QString &tableName, const QString &hex)
 {
     if (hex.isEmpty()) return 0;
-
     QString normalizedHex = hex.toUpper();
-
     QSqlQuery query(db);
     query.prepare(QString("SELECT id FROM %1 WHERE hex_code = :hex").arg(tableName));
     query.bindValue(":hex", normalizedHex);
-    if (query.exec() && query.next()) {
-        return query.value(0).toInt();
-    }
+    if (query.exec() && query.next()) { return query.value(0).toInt(); }
     return 0;
 }
 
@@ -308,18 +222,13 @@ int Database::getUserIdByEmail(const QString &email)
     QSqlQuery query(db);
     query.prepare("SELECT id FROM users WHERE email = :email");
     query.bindValue(":email", email);
-    if (query.exec() && query.next()) {
-        return query.value(0).toInt();
-    }
+    if (query.exec() && query.next()) { return query.value(0).toInt(); }
     return 0;
 }
 
 bool Database::registerUser(const QString &name, const QString &email, const QString &password)
 {
-    if (name.isEmpty() || email.isEmpty() || password.isEmpty()) {
-        return false;
-    }
-
+    if (name.isEmpty() || email.isEmpty() || password.isEmpty()) { return false; }
     if (getUserIdByEmail(email) > 0) {
         qDebug() << "Помилка: Спроба реєстрації з існуючою поштою:" << email;
         return false;
@@ -341,24 +250,24 @@ bool Database::registerUser(const QString &name, const QString &email, const QSt
     query.bindValue(":text_id", defaultTextColorId > 0 ? defaultTextColorId : 1);
     query.bindValue(":font_id", fixedFontId);
 
-    return query.exec();
+    if (!query.exec()) {
+        qCritical() << "Помилка реєстрації користувача:" << query.lastError().text();
+        return false;
+    }
+    return true;
 }
 
 QVariant Database::loginUser(const QString &email, const QString &password)
 {
-    if (email.isEmpty() || password.isEmpty()) {
-        return QVariant();
-    }
+    if (email.isEmpty() || password.isEmpty()) { return QVariant(); }
 
     QString providedHashHex = hashPasswordToHex(password);
-
     QSqlQuery query(db);
     query.prepare("SELECT id, name, password_hash, accent_color_id, background_color_id, text_color_id, font_family_id FROM users WHERE email = :email");
     query.bindValue(":email", email);
 
     if (query.exec() && query.next()) {
         QString storedHashHex = query.value("password_hash").toString();
-
         if (storedHashHex == providedHashHex) {
             int accentId = query.value("accent_color_id").toInt();
             int backgroundId = query.value("background_color_id").toInt();
@@ -369,32 +278,24 @@ QVariant Database::loginUser(const QString &email, const QString &password)
             userData["id"] = query.value("id").toInt();
             userData["name"] = query.value("name").toString();
             userData["email"] = email;
-
             userData["accentColor"] = getColorHexById("accent_colors", accentId);
             userData["backgroundColor"] = getColorHexById("background_colors", backgroundId);
             userData["textColor"] = getColorHexById("text_colors", textColorId);
             userData["fontFamily"] = getFixedFontName();
-
             userData["accentColorId"] = accentId;
             userData["backgroundColorId"] = backgroundId;
             userData["textColorId"] = textColorId;
             userData["fontFamilyId"] = fontId;
-
             return userData;
         }
     }
-
     return QVariant();
 }
 
 bool Database::saveUserSettings(int userId, int accentColorId, int backgroundColorId, int textColorId)
 {
-    if (userId <= 0) {
-        return false;
-    }
-
+    if (userId <= 0) { return false; }
     int fixedFontId = getFixedFontId();
-
     QSqlQuery query(db);
     query.prepare("UPDATE users SET accent_color_id = :accent_id, background_color_id = :background_id, text_color_id = :text_id, font_family_id = :font_id WHERE id = :user_id");
     query.bindValue(":accent_id", accentColorId);
@@ -403,11 +304,7 @@ bool Database::saveUserSettings(int userId, int accentColorId, int backgroundCol
     query.bindValue(":font_id", fixedFontId);
     query.bindValue(":user_id", userId);
 
-    if (!query.exec()) {
-        qCritical() << "Помилка оновлення налаштувань користувача:" << query.lastError().text();
-        return false;
-    }
-
+    if (!query.exec()) { qCritical() << "Помилка оновлення налаштувань користувача:" << query.lastError().text(); return false; }
     return true;
 }
 
@@ -505,29 +402,23 @@ QVariantList Database::getRepeatOptions()
 
 QVariant Database::addNote(int userId, const QVariantMap &noteData)
 {
-    if (userId <= 0 || noteData.value("title").toString().isEmpty()) {
-        return QVariant();
-    }
+    if (userId <= 0 || noteData.value("title").toString().isEmpty()) { return QVariant(); }
 
     int taskTypeId = getIdOrCreate("task_types", "name", noteData.value("taskType").toString());
     int priorityId = getIdOrCreate("priorities", "name", noteData.value("priority").toString());
-
     int activityId = getOrCreateActivity(userId, noteData.value("activityType").toString());
-
     int repeatOptionId = getIdOrCreate("repeat_options", "name", noteData.value("repeatOption").toString());
 
-    if (activityId == -1) {
-        return QVariant();
-    }
-    if (taskTypeId == -1 || priorityId == -1 || repeatOptionId == -1) {
-        qCritical() << "Помилка: Не вдалося отримати ID для taskType/priority/repeatOption";
+    if (activityId == -1 || taskTypeId == -1 || priorityId == -1 || repeatOptionId == -1) {
+        qCritical() << "Помилка: Не вдалося отримати ID для taskType/priority/activity/repeatOption";
         return QVariant();
     }
 
     QString createdDate = QDateTime::currentDateTime().toString("yyyy-MM-dd");
     QString createdTime = QDateTime::currentDateTime().toString("HH:mm");
-
     QString executionDate = noteData.value("executionDate").toString();
+
+    if (executionDate.isEmpty()) { executionDate = createdDate; }
 
     int startDayId = getDayOfWeekId(createdDate);
     int executionDayId = executionDate.isEmpty() ? 0 : getDayOfWeekId(executionDate);
@@ -539,48 +430,37 @@ QVariant Database::addNote(int userId, const QVariantMap &noteData)
     query.bindValue(":user_id", userId);
     query.bindValue(":title", noteData.value("title").toString());
     query.bindValue(":content", noteData.value("content").toString());
-
     query.bindValue(":task_type_id", taskTypeId > 0 ? QVariant(taskTypeId) : QVariant());
     query.bindValue(":priority_id", priorityId > 0 ? QVariant(priorityId) : QVariant());
     query.bindValue(":activity_id", activityId > 0 ? QVariant(activityId) : QVariant());
-
     query.bindValue(":execution_date", executionDate.isEmpty() ? QVariant() : executionDate);
     query.bindValue(":repeat_option_id", repeatOptionId > 0 ? QVariant(repeatOptionId) : QVariant());
-
-    query.bindValue(":created_date", createdDate);
-    query.bindValue(":created_time", createdTime);
-
+    query.bindValue(":created_date", QDateTime::currentDateTime().toString("yyyy-MM-dd"));
+    query.bindValue(":created_time", QDateTime::currentDateTime().toString("HH:mm"));
     query.bindValue(":start_day_id", startDayId > 0 ? QVariant(startDayId) : QVariant());
     query.bindValue(":execution_day_id", executionDayId > 0 ? QVariant(executionDayId) : QVariant());
 
-    if (query.exec()) {
-        return query.lastInsertId();
-    } else {
-        qCritical() << "Помилка додавання нотатки:" << query.lastError().text();
-        return QVariant();
-    }
+    if (query.exec()) { return query.lastInsertId(); }
+    else { qCritical() << "Помилка додавання нотатки:" << query.lastError().text(); return QVariant(); }
 }
 
 QVariantList Database::getNotesForUser(int userId)
 {
     QVariantList notesList;
-
-    if (userId <= 0) {
-        return notesList;
-    }
+    if (userId <= 0) { return notesList; }
 
     QSqlQuery query(db);
     query.prepare("SELECT n.id, n.title, n.content, n.created_date, n.created_time, n.execution_date, "
                   "n.repeat_option_id, "
                   "tt.name AS taskType, p.name AS priority, p.color_hex AS priorityColor, a.name AS activityType, "
-                  "ro.name AS repeatOption, "
+                  "ro.name AS repeatOption, ro.value_minutes AS repeatMinutes, "
                   "n.execution_day_id "
                   "FROM notes n "
                   "LEFT JOIN task_types tt ON n.task_type_id = tt.id "
                   "LEFT JOIN priorities p ON n.priority_id = p.id "
                   "LEFT JOIN activities a ON n.activity_id = a.id "
                   "LEFT JOIN repeat_options ro ON n.repeat_option_id = ro.id "
-                  "WHERE n.user_id = :user_id "
+                  "WHERE n.user_id = :user_id AND n.execution_date IS NOT NULL "
                   "ORDER BY n.execution_date ASC, n.id DESC");
     query.bindValue(":user_id", userId);
 
@@ -590,42 +470,47 @@ QVariantList Database::getNotesForUser(int userId)
             note["id"] = query.value("id").toInt();
             note["title"] = query.value("title").toString();
             note["content"] = query.value("content").toString();
-
             note["execution_date"] = query.value("execution_date").toString();
             note["repeat_option_id"] = query.value("repeat_option_id").toInt();
             note["repeatOption"] = query.value("repeatOption").toString();
+            note["repeatMinutes"] = query.value("repeatMinutes").toInt();
             note["created_time"] = query.value("created_time").toString();
             note["created_date"] = query.value("created_date").toString();
-
             note["taskType"] = query.value("taskType").toString();
             note["priority"] = query.value("priority").toString();
             note["priorityColor"] = query.value("priorityColor").toString();
             note["activityType"] = query.value("activityType").toString();
             note["execution_day_id"] = query.value("execution_day_id").toInt();
-
             notesList.append(note);
         }
-    } else {
-        qCritical() << "Помилка отримання нотаток:" << query.lastError().text();
-    }
-
+    } else { qCritical() << "Помилка отримання нотаток:" << query.lastError().text(); }
     return notesList;
 }
 
 bool Database::deleteNote(int noteId)
 {
-    if (noteId <= 0) {
-        return false;
-    }
-
+    if (noteId <= 0) { return false; }
     QSqlQuery query(db);
     query.prepare("DELETE FROM notes WHERE id = :id");
     query.bindValue(":id", noteId);
-
-    if (query.exec()) {
-        return query.numRowsAffected() > 0;
-    }
-
+    if (query.exec()) { return query.numRowsAffected() > 0; }
     qCritical() << "Помилка видалення нотатки:" << query.lastError().text();
     return false;
+}
+
+void Database::updateNoteExecutionTime(int noteId, const QDateTime &nextTime)
+{
+    if (noteId <= 0) return;
+    QSqlQuery query(db);
+    if (!nextTime.isValid()) {
+        query.prepare("UPDATE notes SET execution_date = NULL, created_time = NULL WHERE id = :id");
+    } else {
+        QString newDate = nextTime.toString("yyyy-MM-dd");
+        QString newTime = nextTime.toString("HH:mm");
+        query.prepare("UPDATE notes SET execution_date = :date, created_time = :time WHERE id = :id");
+        query.bindValue(":date", newDate);
+        query.bindValue(":time", newTime);
+    }
+    query.bindValue(":id", noteId);
+    if (!query.exec()) { qCritical() << "Помилка оновлення часу нотатки" << noteId << ":" << query.lastError().text(); }
 }

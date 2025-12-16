@@ -15,7 +15,6 @@ ApplicationWindow {
     property color accentColor: Material.color(Material.Indigo)
     property color backgroundColor: "#BBDEFB"
     property color currentTextColor: "#000000"
-
     Dialog {
         id: dialog
         width: 350
@@ -567,6 +566,7 @@ ApplicationWindow {
             property int textColorId: 1
             property int fontFamilyId: 1
 
+
             QtObject {
                 id: dateHelper
                 function getStartOfWeek(date) {
@@ -728,7 +728,7 @@ ApplicationWindow {
                                             }
                                             dayGroup.notesArray.push(clonedNote);
                                             dayGroup.isEmpty = false;
-                                            console.log(`    -> ADDED (Recurring) to day: ${dayGroup.dayName} (${dateHelper.formatDate(dayDateObj)})`);
+                                            console.log(`     -> ADDED (Recurring) to day: ${dayGroup.dayName} (${dateHelper.formatDate(dayDateObj)})`);
                                         }
                                     }
 
@@ -744,7 +744,7 @@ ApplicationWindow {
                                             }
                                             groupedDays[executionDayIdForWeek].notesArray.push(note);
                                             groupedDays[executionDayIdForWeek].isEmpty = false;
-                                            console.log(`    -> ADDED (Single) to day: ${groupedDays[executionDayIdForWeek].dayName} (${dateHelper.formatDate(groupedDays[executionDayIdForWeek].date)})`);
+                                            console.log(`     -> ADDED (Single) to day: ${groupedDays[executionDayIdForWeek].dayName} (${dateHelper.formatDate(groupedDays[executionDayIdForWeek].date)})`);
                                         }
                                     }
                                 }
@@ -801,6 +801,7 @@ ApplicationWindow {
                         return;
                     }
 
+                    // *** ЗМІНА: Використання глобальних об'єктів C++ без "window."
                     if (dbManager.saveUserSettings(currentUserId, accentId, backgroundId, textId)) {
                         diaryPage.accentColorId = accentId;
                         diaryPage.backgroundColorId = backgroundId;
@@ -812,13 +813,24 @@ ApplicationWindow {
                 }
             }
 
+            // ==========================================================
+            // ЛОГІКА ДЛЯ NOTIFICATION MANAGER
+            // ==========================================================
             Component.onCompleted: {
+                // *** ВИПРАВЛЕНО: Використання глобальних об'єктів C++ без "diaryPage." чи "window."
                 if (diaryPage.currentUserId > 0) {
                     loadNotes();
+                    // Звернення до глобального об'єкта C++
+                    if (typeof notificationManager !== 'undefined' && notificationManager) {
+                        notificationManager.onUserLoggedIn(currentUserId);
+                        console.log("NotificationManager: User logged in, ID:", currentUserId);
+                    }
                 } else {
                     console.error("Помилка: diaryContent завантажено без дійсного currentUserId.")
                 }
             }
+            // ==========================================================
+
             ColumnLayout {
                 id: mainLayout
                 anchors.fill: parent
@@ -1018,8 +1030,8 @@ ApplicationWindow {
                                                     text: model.priority;
                                                     font.pixelSize: 12;
                                                     color: model.priority === qsTr("Висока") ? Material.color(Material.Red, Material.Shade700) :
-                                                            model.priority === qsTr("Середня") ? Material.color(Material.Blue, Material.Shade700) :
-                                                            model.priority === qsTr("Низька") ? Material.color(Material.Green, Material.Shade700) : Material.color(Material.Grey, Material.Shade700)
+                                                        model.priority === qsTr("Середня") ? Material.color(Material.Blue, Material.Shade700) :
+                                                        model.priority === qsTr("Низька") ? Material.color(Material.Green, Material.Shade700) : Material.color(Material.Grey, Material.Shade700)
                                                     font.family: "Roboto"
                                                 }
                                                 Label {
@@ -1241,176 +1253,205 @@ ApplicationWindow {
                             }
                         }
                     } }
-            }
-            Drawer {
-                id: drawer
-                edge: Qt.RightEdge
-                width: 280
-                height: parent.height
-                Material.background: window.backgroundColor || "#FFFFFF"
+                }
+                Drawer {
+                    id: drawer
+                    edge: Qt.RightEdge
+                    width: 280
+                    height: parent.height
+                    Material.background: window.backgroundColor || "#FFFFFF"
 
-                ColumnLayout {
-                    width: parent.width
-                    spacing: 10
-                    anchors.fill: parent
-                    anchors.margins: 20
-                    Rectangle {
-                        id: avatarWrapper
-                        Layout.preferredWidth: 80; Layout.preferredHeight: 80
-                        Layout.alignment: Qt.AlignHCenter
-                        radius: avatarWrapper.width / 2
-                        clip: true
+                    ColumnLayout {
+                        width: parent.width
+                        spacing: 10
+                        anchors.fill: parent
+                        anchors.margins: 20
+                        Rectangle {
+                            id: avatarWrapper
+                            Layout.preferredWidth: 80; Layout.preferredHeight: 80
+                            Layout.alignment: Qt.AlignHCenter
+                            radius: avatarWrapper.width / 2
+                            clip: true
+                            Label {
+                                text: "👤"
+                                font.pixelSize: 60
+                                anchors.centerIn: parent
+                                font.family: "Roboto"
+                                color: window.currentTextColor
+                            }
+                            MouseArea { anchors.fill: parent; onClicked: dialog.show(qsTr("Виберіть нове фото аватара..."), false) }
+                        }
                         Label {
-                            text: "👤"
-                            font.pixelSize: 60
-                            anchors.centerIn: parent
+                            text: diaryPage.userName
+                            font.pixelSize: 16;
+                            font.bold: true;
+                            Layout.alignment: Qt.AlignHCenter
+                            Layout.topMargin: 5
                             font.family: "Roboto"
                             color: window.currentTextColor
                         }
-                        MouseArea { anchors.fill: parent; onClicked: dialog.show(qsTr("Виберіть нове фото аватара..."), false) }
-                    }
-                    Label {
-                        text: diaryPage.userName
-                        font.pixelSize: 16;
-                        font.bold: true;
-                        Layout.alignment: Qt.AlignHCenter
-                        Layout.topMargin: 5
-                        font.family: "Roboto"
-                        color: window.currentTextColor
-                    }
 
-                    Label { text: qsTr("Налаштування щоденника"); font.pixelSize: 18; font.bold: true; Layout.topMargin: 20; font.family: "Roboto"; color: window.currentTextColor }
-                    Label { text: qsTr("Колір кнопок/шапки:"); font.bold: true; font.family: "Roboto"; color: window.currentTextColor }
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 5
-                        Repeater {
-                            model: [
-                                Material.color(Material.Indigo),
-                                Material.color(Material.Red),
-                                Material.color(Material.Green),
-                                Material.color(Material.Teal),
-                                Material.color(Material.Orange),
-                                Material.color(Material.BlueGrey)
-                            ]
-                            delegate: ToolButton {
-                                Layout.preferredWidth: 30
-                                Layout.preferredHeight: 30
-                                background: Rectangle {
-                                    anchors.fill: parent
-                                    radius: 15
-                                    color: modelData
-                                    border.width: window.accentColor === modelData ? 3 : 1
-                                    border.color: window.accentColor === modelData ? Material.color(Material.Grey, Material.Shade900) : Material.color(Material.Grey, Material.Shade400)
-                                }
-                                onClicked: {
-                                    window.accentColor = modelData;
-                                    diaryPage.saveSettings();
+                        Label { text: qsTr("Налаштування щоденника"); font.pixelSize: 18; font.bold: true; Layout.topMargin: 20; font.family: "Roboto"; color: window.currentTextColor }
+                        Label { text: qsTr("Колір кнопок/шапки:"); font.bold: true; font.family: "Roboto"; color: window.currentTextColor }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 5
+                            Repeater {
+                                model: [
+                                    Material.color(Material.Indigo),
+                                    Material.color(Material.Red),
+                                    Material.color(Material.Green),
+                                    Material.color(Material.Teal),
+                                    Material.color(Material.Orange),
+                                    Material.color(Material.BlueGrey)
+                                ]
+                                delegate: ToolButton {
+                                    Layout.preferredWidth: 30
+                                    Layout.preferredHeight: 30
+                                    background: Rectangle {
+                                        anchors.fill: parent
+                                        radius: 15
+                                        color: modelData
+                                        border.width: window.accentColor === modelData ? 3 : 1
+                                        border.color: window.accentColor === modelData ? Material.color(Material.Grey, Material.Shade900) : Material.color(Material.Grey, Material.Shade400)
+                                    }
+                                    onClicked: {
+                                        window.accentColor = modelData;
+                                        diaryPage.saveSettings();
+                                    }
                                 }
                             }
                         }
-                    }
-                    Label { text: qsTr("Фоновий колір (Пастель):"); font.bold: true; Layout.topMargin: 15; font.family: "Roboto"; color: window.currentTextColor }
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 5
-                        Repeater {
-                            model: ["#FFFFFF", "#FFF9C4", "#BBDEFB", "#F8E0F7", "#CFEFCF", "#FBE4D8"]
-                            delegate: ToolButton {
-                                Layout.preferredWidth: 30
-                                Layout.preferredHeight: 30
-                                background: Rectangle {
-                                    anchors.fill: parent
-                                    radius: 15
-                                    color: modelData
-                                    border.width: window.backgroundColor === modelData ? 3 : 1
-                                    border.color: window.backgroundColor === modelData ? Material.color(Material.Grey, Material.Shade900) : Material.color(Material.Grey, Material.Shade400)
-                                }
-                                onClicked: {
-                                    window.backgroundColor = modelData;
-                                    diaryPage.saveSettings();
-                                }
-                            }
-                        }
-                    }
-
-                    Label { text: qsTr("Колір основного тексту:"); font.bold: true; Layout.topMargin: 15; font.family: "Roboto"; color: window.currentTextColor }
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 5
-
-                        Repeater {
-                            model: ["#000000", "#555555", "#FF0000", "#008000", "#0000FF", "#800080"]
-                            delegate: ToolButton {
-                                Layout.preferredWidth: 30
-                                Layout.preferredHeight: 30
-                                background: Rectangle {
-                                    anchors.fill: parent
-                                    radius: 15
-                                    color: modelData
-                                    border.width: window.currentTextColor === modelData ? 3 : 1
-                                    border.color: window.currentTextColor === modelData ? Material.color(Material.Indigo) : Material.color(Material.Grey, Material.Shade400)
-                                }
-                                onClicked: {
-                                    window.currentTextColor = modelData;
-                                    diaryPage.saveSettings();
+                        Label { text: qsTr("Фоновий колір (Пастель):"); font.bold: true; Layout.topMargin: 15; font.family: "Roboto"; color: window.currentTextColor }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 5
+                            Repeater {
+                                model: ["#FFFFFF", "#FFF9C4", "#BBDEFB", "#F8E0F7", "#CFEFCF", "#FBE4D8"]
+                                delegate: ToolButton {
+                                    Layout.preferredWidth: 30
+                                    Layout.preferredHeight: 30
+                                    background: Rectangle {
+                                        anchors.fill: parent
+                                        radius: 15
+                                        color: modelData
+                                        border.width: window.backgroundColor === modelData ? 3 : 1
+                                        border.color: window.backgroundColor === modelData ? Material.color(Material.Grey, Material.Shade900) : Material.color(Material.Grey, Material.Shade400)
+                                    }
+                                    onClicked: {
+                                        window.backgroundColor = modelData;
+                                        diaryPage.saveSettings();
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    Button {
-                        text: qsTr("Вийти з акаунта")
-                        Layout.fillWidth: true
-                        Layout.topMargin: 50
-                        Material.background: Material.color(Material.Red)
-                        onClicked: {
-                            drawer.close();
-                            notesModel.clear();
-                            weekNotesModel.clear();
-                            diaryPage.currentUserId = -1;
-                            dialog.show(qsTr("Вихід успішний. Повернення до сторінки входу."), false);
-                            Qt.callLater(function() {
-                                if (stackRef && loginPageRef) {
-                                    stackRef.replace(loginPageRef);
+                        Label { text: qsTr("Колір основного тексту:"); font.bold: true; Layout.topMargin: 15; font.family: "Roboto"; color: window.currentTextColor }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 5
+
+                            Repeater {
+                                model: ["#000000", "#555555", "#FF0000", "#008000", "#0000FF", "#800080"]
+                                delegate: ToolButton {
+                                    Layout.preferredWidth: 30
+                                    Layout.preferredHeight: 30
+                                    background: Rectangle {
+                                        anchors.fill: parent
+                                        radius: 15
+                                        color: modelData
+                                        border.width: window.currentTextColor === modelData ? 3 : 1
+                                        border.color: window.currentTextColor === modelData ? Material.color(Material.Indigo) : Material.color(Material.Grey, Material.Shade400)
+                                    }
+                                    onClicked: {
+                                        window.currentTextColor = modelData;
+                                        diaryPage.saveSettings();
+                                    }
+                                }
+                            }
+                        }
+
+                        // ==========================================================
+                        // КНОПКА ТЕСТУВАННЯ СПОВІЩЕНЬ
+                        // ==========================================================
+                        Button {
+                            text: qsTr("Тест сповіщення")
+                            Layout.fillWidth: true
+                            Layout.topMargin: 20
+                            Material.background: Material.color(Material.Blue, Material.Shade500)
+                            onClicked: {
+                                // *** ВИПРАВЛЕНО: Звернення до глобального desktopNotification ***
+                                if (typeof desktopNotification !== 'undefined' && desktopNotification) {
+                                    desktopNotification.showNotification(
+                                        qsTr("Тестове сповіщення"),
+                                        qsTr("Це тестове сповіщення від щоденника. ID: 123"),
+                                        123
+                                    );
                                 } else {
-                                    console.error("Помилка: StackView або loginPageRef недоступні для повернення.")
+                                    dialog.show(qsTr("ПОМИЛКА: Об'єкт desktopNotification недоступний."), true);
                                 }
-                            });
+                            }
+                        }
+                        // ==========================================================
+
+                        Button {
+                            text: qsTr("Вийти з акаунта")
+
+                            Layout.fillWidth: true
+                            Layout.topMargin: 50
+                            Material.background: Material.color(Material.Red)
+                            onClicked: {
+                                // *** ВИПРАВЛЕНО: Звернення до глобального notificationManager ***
+                                if (typeof notificationManager !== 'undefined' && notificationManager) {
+                                    notificationManager.onUserLoggedOut();
+                                }
+                                drawer.close();
+                                notesModel.clear();
+                                weekNotesModel.clear();
+                                diaryPage.currentUserId = -1;
+                                dialog.show(qsTr("Вихід успішний. Повернення до сторінки входу."), false);
+                                Qt.callLater(function() {
+                                    if (stackRef && loginPageRef) {
+                                        stackRef.replace(loginPageRef);
+                                    } else {
+                                        console.error("Помилка: StackView або loginPageRef недоступні для повернення.")
+                                    }
+                                });
+                            }
                         }
                     }
                 }
-            }
-            Button {
-                id: fab
-                text: "➕"
-                font.pixelSize: 24
-                width: 56
-                height: 56
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                anchors.rightMargin: 20
-                anchors.bottomMargin: 20
-                visible: diaryPage.currentView === 1 || notesModel.count > 0
-                background: Rectangle {
-                    radius: fab.width / 2
-                    color: window.accentColor || Material.color(Material.Indigo)
-                }
-                Material.foreground: "white"
-                onClicked: Qt.callLater(function() {
-                    var noteInstance = newNotePage.createObject(stackRef, {
-                        stackView: stackRef,
-                        dialog: dialog,
-                        userId: diaryPage.currentUserId,
-                        dbManager: diaryPage.dbManager
-                    });
-                    if (noteInstance) {
-                        stackRef.push(noteInstance);
-                    }
-                })
-            }
-        }
+                Button {
+                                id: fab
+                                text: "➕"
+                                font.pixelSize: 24
+                                width: 56
+                                height: 56
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                anchors.rightMargin: 20
+                                anchors.bottomMargin: 20
+                                visible: diaryPage.currentView === 1 || notesModel.count > 0
+                                background: Rectangle {
+                                    radius: fab.width / 2
+                                    color: window.accentColor || Material.color(Material.Indigo)
+                                }
+                                Material.foreground: "white"
+                                onClicked: Qt.callLater(function() {
+                                    var noteInstance = newNotePage.createObject(stackRef, {
+                                        stackView: stackRef,
+                                        dialog: dialog,
+                                        userId: diaryPage.currentUserId,
+                                        dbManager: diaryPage.dbManager
+                                    });
+                                    if (noteInstance) {
+                                        stackRef.push(noteInstance);
+                                    }
+                                })
+                            }
+                        }
     }
+
 
     Component {
         id: registerPage

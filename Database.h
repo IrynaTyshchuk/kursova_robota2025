@@ -6,6 +6,7 @@
 #include <QVariant>
 #include <QVariantList>
 #include <QVariantMap>
+#include <QDateTime>
 
 class Database : public QObject
 {
@@ -15,10 +16,15 @@ public:
     explicit Database(QObject *parent = nullptr);
     static int getFixedFontId();
     static QString getFixedFontName();
+
+    // ДОЗВОЛЯЄМО NotificationManager напряму працювати з БД
+    QSqlDatabase& getDatabase() { return db; }
+
     Q_INVOKABLE int getDayOfWeekId(const QString &dateString);
     Q_INVOKABLE bool registerUser(const QString &name, const QString &email, const QString &password);
     Q_INVOKABLE QVariant loginUser(const QString &email, const QString &password);
     Q_INVOKABLE bool saveUserSettings(int userId, int accentColorId, int backgroundColorId, int textColorId);
+
     Q_INVOKABLE QVariantList getAccentColors();
     Q_INVOKABLE QVariantList getBackgroundColors();
     Q_INVOKABLE QVariantList getTextColors();
@@ -26,10 +32,15 @@ public:
     Q_INVOKABLE QVariantList getPriorities();
     Q_INVOKABLE QVariantList getActivities();
     Q_INVOKABLE QVariantList getRepeatOptions();
+
     Q_INVOKABLE QVariant addNote(int userId, const QVariantMap &noteData);
     Q_INVOKABLE QVariantList getNotesForUser(int userId);
     Q_INVOKABLE bool deleteNote(int noteId);
     Q_INVOKABLE int getColorIdByHex(const QString &tableName, const QString &hex);
+
+    // ДОПОМІЖНИЙ МЕТОД: Оновлення часу нагадування у БД
+    void updateNoteExecutionTime(int noteId, const QDateTime &nextTime);
+
 private:
     QSqlDatabase db;
     void initializeDatabase();
